@@ -11,6 +11,7 @@ PRACTICE_REPORT_PDF = practice_report
 COURSE_REPORT_PDF = course_report
 TITLE_PDF = diploma_title_only
 TASK_PDF = diploma_task_only
+ECON_PDF = sec_econ_only
 BIBTEX = bibtex
 RM = rm -f
 GREP = grep
@@ -59,11 +60,16 @@ $(TASK_PDF).pdf: *.tex
 	$(PDFLATEX) $(TASK_PDF)
 	$(PDFLATEX) $(TASK_PDF)
 
+$(ECON_PDF).pdf: *.tex
+	$(PDFLATEX) $(ECON_PDF)
+	$(BIBTEX) $(ECON_PDF).aux
+	$(PDFLATEX) $(ECON_PDF)
+	$(PDFLATEX) $(ECON_PDF)
 
 cleanall: clean
 	$(RM)  *.pdf
 
 .PHONY: clean
 clean:
-	$(RM) *.aux *.log *.out *.toc *.gz *.gz\(busy\) *.blg *.bbl $(DIPLOMA_REPORT_PDF).pdf $(TASK_PDF).pdf $(TITLE_PDF).pdf $(PRACTICE_REPORT_PDF).pdf $(COURSE_REPORT_PDF).pdf
+	$(RM) *.aux *.log *.out *.toc *.gz *.gz\(busy\) *.blg *.bbl $(DIPLOMA_REPORT_PDF).pdf $(TASK_PDF).pdf $(TITLE_PDF).pdf $(PRACTICE_REPORT_PDF).pdf $(COURSE_REPORT_PDF).pdf $(ECON_PDF).pdf
 
