@@ -33,6 +33,7 @@
 *.pdf
 *.gz*
 *~
+MiKTeX/personal_info.tex
 !example_diploma.pdf
 !example_practice.pdf
 !document_list.pdf
