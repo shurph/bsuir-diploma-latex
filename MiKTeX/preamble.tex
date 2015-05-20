@@ -215,6 +215,7 @@
 % Почему: Пункт 2.5.5 Требований по оформлению пояснительной записки.
 \DeclareCaptionLabelFormat{stbfigure}{Рисунок \emph{#2}}
 \DeclareCaptionLabelFormat{stbtable}{Таблица \emph{#2}}
+\DeclareCaptionLabelFormat{stbtablecont}{Продолжение таблицы \emph{#2}}
 \DeclareCaptionLabelSeparator{stb}{~--~}
 \captionsetup{labelsep=stb}
 \captionsetup[figure]{labelformat=stbfigure,justification=centering}
@@ -487,6 +488,10 @@
        {\@latex@warning{Empty `thebibliography' environment}}%
       \endlist}
 \makeatother
+
+% для принудительного разбивания на строки внутри табличной ячейки
+\newcommand{\specialcell}[2][c]{%
+  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
 
 % Импортируем персональную информацию - имена руководителей, свое имя, группу и т.д.
 \input{personal_info}
