@@ -1,0 +1,2537 @@
+./core/src/configuration/mod.rs:
+
+extern crate anymap;
+
+use std;
+use std::str;
+
+use std::io::prelude::*;
+use std::fs::File;
+
+use self::anymap::AnyMap;
+
+macro_rules! config {
+    ($config:ident, $config_type:ident) => {
+        {
+            let &::configuration::$config_type(ref config_tmp) =
+                $config.get::<::configuration::$config_type>()
+                  .expect(format!("Trying to access missing config. Called from {:?}:{:?}", file!(), line!()).as_ref());
+            config_tmp.clone()
+        }
+    };
+}
+
+#[derive(Debug,Clone)]
+pub enum DistributionValue {
+    UniformDistributionValue{ from: f64, to: f64 },
+    NormalDistributionValue{ mean: f64, std_deviation: f64 },
+    TimeInfiniteDistributionValue{ avg_rate: f64, rate_deviation: f64 },
+}
+
+#[derive(Debug,Clone)]
+pub struct SceneWidth(pub u16);
+#[derive(Debug,Clone)]
+pub struct SceneHeight(pub u16);
+#[derive(Debug,Clone)]
+pub struct SceneScale(pub f64);
+#[derive(Debug,Clone)]
+pub struct SceneWall {
+    pub x0 : u16, pub y0 : u16, pub x1 : u16, pub y1: u16,
+}
+#[derive(Debug,Clone)]
+pub struct SceneWalls(pub Vec<SceneWall>);
+#[derive(Debug,Clone)]
+pub struct SceneSpawnArea {
+    pub x0 : u16, pub y0 : u16, pub x1 : u16, pub y1: u16,
+    pub id: u8
+}
+#[derive(Debug,Clone)]
+pub struct SceneSpawnAreas(pub Vec<SceneSpawnArea>);
+#[derive(Debug,Clone)]
+pub struct SceneTargetArea {
+    pub x0 : u16, pub y0 : u16, pub x1 : u16, pub y1: u16,
+    pub id: u8,
+    pub sequence_no: u8,
+    pub last: bool
+}
+#[derive(Debug,Clone)]
+pub struct SceneTargetAreas(pub Vec<SceneTargetArea>);
+#[derive(Debug,Clone)]
+pub struct SceneFilename(pub String);
+
+#[derive(Debug,Clone)]
+pub struct TimeEndTime(pub u32);
+#[derive(Debug,Clone)]
+pub struct TimeTick(pub f64);
+
+#[derive(Debug,Clone)]
+pub struct SpawnTime(pub DistributionValue);
+#[derive(Debug,Clone)]
+pub struct SpawnRate(pub f64);
+
+#[derive(Debug,Clone)]
+pub struct ForcesTargetSpeed(pub DistributionValue);
+#[derive(Debug,Clone)]
+pub struct ForcesRepulsionCoeff(pub DistributionValue);
+
+#[derive(Debug,Clone)]
+pub struct FovForward(pub f64);
+#[derive(Debug,Clone)]
+pub struct FovBackward(pub f64);
+
+#[derive(Debug,Clone)]
+pub struct DensityMapEnabled(pub bool);
+#[derive(Debug,Clone)]
+pub struct DensityMapMinThreshold(pub f64);
+#[derive(Debug,Clone)]
+pub struct DensityMapMaxThreshold(pub f64);
+
+pub fn new(file: &mut Read) -> AnyMap {
+    let mut config = AnyMap::new();
+    parse_config_file(&mut config, file);
+    config
+}
+
+fn parse_config_file(config: &mut AnyMap, file: &mut Read) {
+    info!("Starting to parse config file");
+
+    let mut buf = [0u8; 1024];
+    let mut done = false;
+    while !done {
+        done = !parse_single_item(config, file, &mut buf);
+    }
+    info!("Config readed.");
+}
+
+fn parse_single_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) -> bool {
+    let read = file.read(&mut buf[0 .. 1]).ok().expect("Can't read from file");
+    if read != 0 {
+        let section = buf[0];
+        match section {
+            0x01 => parse_scene_item(config, file, buf),
+            0x02 => parse_time_item(config, file, buf),
+            0x03 => parse_spawn_item(config, file, buf),
+            0x04 => parse_forces_item(config, file, buf),
+            0x05 => parse_fov_item(config, file, buf),
+            0x06 => parse_density_map_item(config, file, buf),
+            _ => panic!("Unknown section in config: {}", section)
+        }
+        // let str_value = str::from_utf8(&[116, 116, 101, 115, 116]).unwrap().to_string().clone();
+        // config.insert(SceneFile(str_value));
+        true
+    } else {
+        false
+    }
+}
+
+fn parse_scene_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u16(file, buf);
+    match element {
+        0x01 => {
+            let (x0, y0, x1, y1) = parse_coordinates(file, buf);
+
+            let mut walls_vec = match config.remove::<SceneWalls>() {
+                Some(scene_walls) => {
+                    let SceneWalls(vec) = scene_walls;
+                    vec
+                },
+                None => Vec::new()
+            };
+
+            walls_vec.push(SceneWall{ x0: x0, y0: y0, x1: x1, y1: y1});
+            config.insert(SceneWalls(walls_vec));
+            debug!("Parsed SceneWall: {} {} {} {}", x0, y0, x1, y1);
+        },
+        0x02 => {
+            let (x0, y0, x1, y1) = parse_coordinates(file, buf);
+            let id = parse_u8(file, buf);
+
+            let mut spawn_areas_vec = match config.remove::<SceneSpawnAreas>() {
+                Some(scene_spawn_areas) => {
+                    let SceneSpawnAreas(vec) = scene_spawn_areas;
+                    vec
+                },
+                None => Vec::new()
+            };
+
+            spawn_areas_vec.push(SceneSpawnArea{ x0: x0, y0: y0, x1: x1, y1: y1, id: id});
+            config.insert(SceneSpawnAreas(spawn_areas_vec));
+            debug!("Parsed SceneSpawnArea: {} {} {} {} {}", x0, y0, x1, y1, id);
+        },
+        0x03 => {
+            let (x0, y0, x1, y1) = parse_coordinates(file, buf);
+            let id = parse_u8(file, buf);
+            let seq_no_and_last = parse_u8(file, buf);
+            let last = seq_no_and_last & 0x01 == 0x01;
+            let seq_no = (seq_no_and_last & 0xFE) >> 1;
+
+            let mut target_areas_vec = match config.remove::<SceneTargetAreas>() {
+                Some(scene_target_areas) => {
+                    let SceneTargetAreas(vec) = scene_target_areas;
+                    vec
+                },
+                None => Vec::new()
+            };
+
+            target_areas_vec.push(SceneTargetArea{ x0: x0, y0: y0, x1: x1, y1: y1, id: id, sequence_no: seq_no, last: last});
+            config.insert(SceneTargetAreas(target_areas_vec));
+            debug!("Parsed SceneTargetArea: {} {} {} {} {} {} {}", x0, y0, x1, y1, id, seq_no, last);
+        },
+        0x11 => {
+            let scene_width = parse_u16(file, buf);
+            config.insert(SceneWidth(scene_width));
+            debug!("Parsed SceneWidth: {}", scene_width);
+        },
+        0x12 => {
+            let scene_height = parse_u16(file, buf);
+            config.insert(SceneHeight(scene_height));
+            debug!("Parsed SceneHeight: {}", scene_height);
+        },
+        0x13 => {
+            let scene_scale = parse_f64(file, buf);
+            config.insert(SceneScale(scene_scale));
+            debug!("Parsed SceneScale: {}", scene_scale);
+        },
+        0xFF => {
+            let scene_filename = parse_string(file, buf);
+            debug!("Parsed SceneFilename: {}", scene_filename);
+            config.insert(SceneFilename(scene_filename));
+        }
+        _ => panic!("Unknown element in scene config: {}", element)
+    };
+}
+
+fn parse_time_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u16(file, buf);
+    match element {
+        0x01 => {
+            let end_time = parse_u32(file, buf);
+            config.insert(TimeEndTime(end_time));
+            debug!("Parsed TimeEndTime: {}", end_time);
+        },
+        0x02 => {
+            let tick = parse_f64(file, buf);
+            config.insert(TimeTick(tick));
+            debug!("Parsed TimeTick: {}", tick);
+        },
+        _ => panic!("Unknown element in time config: {}", element)
+    };
+}
+
+fn parse_spawn_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u16(file, buf);
+    match element {
+        0x01 => {
+            let rate = parse_f64(file, buf);
+            config.insert(SpawnRate(rate));
+            debug!("Parsed SpawnRate: {}", rate);
+        },
+        0x02 => {
+            let distribution = parse_distribution(file, buf);
+            debug!("Parsed SpawnTime: {:?}", distribution);
+            config.insert(SpawnTime(distribution));
+        },
+        _ => panic!("Unknow element in spawn config: {}", element)
+    }
+}
+
+fn parse_forces_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let sub_section = parse_u8(file, buf);
+    match sub_section {
+        0x01 => parse_repulsion_force_item(config, file, buf),
+        0x02 => parse_target_force_item(config, file, buf),
+        _ => panic!("Unknown force: {}", sub_section)
+    }
+}
+
+fn parse_repulsion_force_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u8(file, buf);
+    match element {
+        0x01 => {
+            let distribution = parse_distribution(file, buf);
+            debug!("Parsed ForcesRepulsionCoeff: {:?}", distribution);
+            config.insert(ForcesRepulsionCoeff(distribution));
+        }
+        _ => panic!("Unknown element in repulsion force: {}", element)
+    }
+}
+
+fn parse_target_force_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u8(file, buf);
+    match element {
+        0x01 => {
+            let distribution = parse_distribution(file, buf);
+            debug!("Parsed ForcesTargetSpeed: {:?}", distribution);
+            config.insert(ForcesTargetSpeed(distribution));
+        }
+        _ => panic!("Unknown element in target force: {}", element)
+    }
+}
+
+fn parse_fov_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u16(file, buf);
+    match element {
+        0x01 => {
+            let forward = parse_f64(file, buf);
+            config.insert(FovForward(forward));
+            debug!("Parsed FovForward: {}", forward);
+        },
+        0x02 => {
+            let backward = parse_f64(file, buf);
+            config.insert(FovBackward(backward));
+            debug!("Parsed FovBackward: {}", backward);
+        },
+        _ => panic!("Unknown element in fov config: {}", element)
+    };
+}
+
+fn parse_density_map_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+    let element = parse_u16(file, buf);
+    match element {
+        0x01 => {
+            let enabled_num = parse_u8(file, buf);
+            let enabled = enabled_num != 0_u8;
+            config.insert(DensityMapEnabled(enabled));
+            debug!("Parsed DensityMapEnabled: {}", enabled);
+        },
+        0x02 => {
+            let min_threshold = parse_f64(file, buf);
+            config.insert(DensityMapMinThreshold(min_threshold));
+            debug!("Parsed DensityMapMinThreshold: {}", min_threshold);
+        },
+        0x03 => {
+            let max_threshold = parse_f64(file, buf);
+            config.insert(DensityMapMaxThreshold(max_threshold));
+            debug!("Parsed DensityMapMaxThreshold: {}", max_threshold);
+        },
+        _ => panic!("Unknown element in density map config: {}", element)
+    };
+}
+
+fn parse_coordinates(file: &mut Read, buf : &mut [u8]) -> (u16, u16, u16, u16) {
+    let mut coordinates = [0u16; 4];
+    file.read(&mut buf[0 .. 8]).ok().expect("Can't read from file");
+    for i in (0..4) {
+        coordinates[i] = two_u8le_to_u16(buf[2 * i], buf[2 * i + 1]);
+    }
+    (coordinates[0], coordinates[1], coordinates[2], coordinates[3])
+}
+
+fn parse_distribution(file: &mut Read, buf : &mut [u8]) -> DistributionValue {
+    let distribution_type = parse_u8(file, buf);
+    match distribution_type {
+        0x01 => {
+            let (from, to) = (parse_f64(file, buf), parse_f64(file, buf));
+            DistributionValue::UniformDistributionValue{ from: from, to: to }
+        },
+        0x02 => {
+            let (mean, std_deviation) = (parse_f64(file, buf), parse_f64(file, buf));
+            DistributionValue::NormalDistributionValue{ mean: mean, std_deviation: std_deviation }
+        },
+        0x03 => {
+            let (avg_rate, rate_deviation) = (parse_f64(file, buf), parse_f64(file, buf));
+            DistributionValue::TimeInfiniteDistributionValue{ avg_rate: avg_rate, rate_deviation: rate_deviation }
+        },
+        _ => panic!("Unknown distribution type: {}", distribution_type)
+    }
+}
+
+fn parse_string(file: &mut Read, buf : &mut [u8]) -> String {
+    let string_length = parse_u16(file, buf);
+    file.read(&mut buf[0 .. string_length as usize]).ok().expect("Can't read from file");
+    let mut string_bin = Vec::new();
+    for &x in (&buf[0 .. string_length as usize]).iter() {
+        string_bin.push(x);
+    }
+    let string = str::from_utf8(string_bin.as_slice()).ok().expect("Invalid UTF-8 sequence in string");
+    string.to_string()
+}
+
+fn parse_u8(file: &mut Read, buf : &mut [u8]) -> u8 {
+    file.read(&mut buf[0 .. 1]).ok().expect("Can't read from file");
+    buf[0]
+}
+
+fn parse_u16(file: &mut Read, buf : &mut [u8]) -> u16 {
+    file.read(&mut buf[0 .. 2]).ok().expect("Can't read from file");
+    two_u8le_to_u16(buf[0], buf[1])
+}
+
+fn parse_u32(file: &mut Read, buf : &mut [u8]) -> u32 {
+    file.read(&mut buf[0 .. 4]).ok().expect("Can't read from file");
+    four_u8le_to_u32(buf[0], buf[1], buf[2], buf[3])
+}
+
+fn parse_f64(file: &mut Read, buf : &mut [u8]) -> f64 {
+    file.read(&mut buf[0 .. 8]).ok().expect("Can't read from file");
+    let mut value_bin = [0u8; 8];
+    for (&x, p) in (&buf[0 .. 8]).iter().zip(value_bin.iter_mut()) {
+        *p = x;
+    }
+    let value : f64 = unsafe { std::mem::transmute(value_bin) };
+    value
+}
+
+fn two_u8le_to_u16(x1: u8, x2: u8) -> u16 {
+    let result = ((x1 as u16) << 8) & 0xFF00 | (x2 as u16);
+    result
+}
+
+fn four_u8le_to_u32(x1: u8, x2: u8, x3: u8, x4: u8) -> u32 {
+    let result =
+        ((x1 as u32) << 24) & 0xFF000000 |
+        ((x2 as u32) << 16) & 0x00FF0000 |
+        ((x3 as u32) << 8)  & 0x0000FF00 |
+        (x4 as u32);
+    result
+}
+
+./core/src/main.rs:
+
+#![feature(convert)]
+
+#[macro_use] extern crate log;
+extern crate env_logger;
+
+#[macro_use] mod configuration;
+mod simulation;
+mod output;
+mod utils;
+
+use std::io;
+
+fn main() {
+    env_logger::init().unwrap();
+
+    // let mut file = File::open(config_filename).ok().expect("Can't open provided config file!");
+    let configuration = configuration::new(&mut std::io::stdin());
+    let mut simulation = simulation::Simulation::new(configuration);
+    simulation.main_loop();
+}
+
+./core/src/output/mod.rs:
+
+extern crate anymap;
+extern crate linked_list;
+
+use self::linked_list::LinkedList;
+use self::anymap::AnyMap;
+
+use std;
+use std::io::prelude::*;
+
+use ::simulation::Simulation;
+use ::simulation::person::Person;
+
+pub struct Output {
+    scene_file_name: String,
+    scene_scale: f64,
+
+    density_map_enabled: bool,
+    density_map_min_threshold: f64,
+    density_map_max_threshold: f64,
+    ticks_without_density: u32,
+}
+
+impl Output {
+    pub fn new(configuration: &AnyMap) -> Output {
+        let scene_scale = config!(configuration, SceneScale);
+        let scene_filename = config!(configuration, SceneFilename);
+
+        let density_map_enabled = config!(configuration, DensityMapEnabled);
+        let density_map_min_threshold = config!(configuration, DensityMapMinThreshold);
+        let density_map_max_threshold = config!(configuration, DensityMapMaxThreshold);
+
+        Output{ scene_file_name: scene_filename, scene_scale: scene_scale,
+                density_map_enabled: density_map_enabled, density_map_min_threshold: density_map_min_threshold,
+                density_map_max_threshold: density_map_max_threshold, ticks_without_density: 0 }
+    }
+
+    pub fn send_init(&self) {
+        let mut out = ::std::io::stdout();
+        self.write_string(&mut out, &self.scene_file_name);
+        self.write_f64(&mut out, self.scene_scale);
+        let density_map_enabled_num = if self.density_map_enabled { 1_u8 } else { 0_u8 };
+        self.write_u8(&mut out, density_map_enabled_num);
+        self.write_f64(&mut out, self.density_map_min_threshold);
+        self.write_f64(&mut out, self.density_map_max_threshold);
+    }
+
+    pub fn dump_state(&mut self, simulation: &Simulation) {
+        let mut out = ::std::io::stdout();
+        let current_time = simulation.time.current_time;
+        self.write_f64(&mut out, current_time);
+
+        if self.density_map_enabled {
+            if self.ticks_without_density == 0 {
+                self.write_u8(&mut out, 1_u8);
+                self.dump_density_map(&mut out, &simulation.scene.get_density_map());
+                self.ticks_without_density = (1_f64 / simulation.time.tick).ceil() as u32;
+            } else {
+                self.write_u8(&mut out, 0_u8);
+                self.ticks_without_density -= 1;
+            }
+        }
+
+        self.dump_people_location(&mut out, &simulation.scene.people);
+    }
+
+    fn dump_people_location(&self, out: &mut Write, people: &LinkedList<Person>) {
+        // debug!("People {}", people.len());
+        self.write_u32(out, people.len() as u32);
+        for person in people.iter() {
+            self.write_u16(out, person.coordinates.x.round() as u16);
+            self.write_u16(out, person.coordinates.y.round() as u16);
+            self.write_f64(out, person.heading);
+        }
+    }
+
+    fn dump_density_map(&self, out: &mut Write, density_map: &Vec<Vec<f64>>) {
+        let mut values_to_write = Vec::new();
+        for i in (0 .. density_map.len()) {
+            for j in (0 .. density_map[i].len()) {
+                let value = density_map[i][j];
+                if value > self.density_map_min_threshold {
+                    values_to_write.push((j, i, value));
+                }
+            }
+        };
+
+        self.write_u32(out, values_to_write.len() as u32);
+        for &(x, y, value) in values_to_write.iter() {
+            self.write_u16(out, x as u16);
+            self.write_u16(out, y as u16);
+            self.write_f64(out, value);
+        }
+    }
+
+    fn write_string(&self, out: &mut Write, string: &String) {
+        let string_length = string.len();
+        self.write_u16(out, string_length as u16);
+        out.write(string.as_bytes()).ok().expect("Can't write to file");
+    }
+
+    fn write_u8(&self, out: &mut Write, num: u8) {
+        let buf = [num];
+        out.write(&buf).ok().expect("Can't write to file");
+    }
+
+    fn write_u16(&self, out: &mut Write, num: u16) {
+        let buf = [
+            ((num >> 8) & 0xFF) as u8,
+            (num & 0xFF) as u8,
+        ];
+        out.write(&buf).ok().expect("Can't write to file");
+    }
+
+    fn write_u32(&self, out: &mut Write, num: u32) {
+        let buf = [
+            ((num >> 24) & 0xFF) as u8,
+            ((num >> 16) & 0xFF) as u8,
+            ((num >> 8) & 0xFF) as u8,
+            (num & 0xFF) as u8,
+        ];
+        out.write(&buf).ok().expect("Can't write to file");
+    }
+
+    fn write_f64(&self, out: &mut Write, num: f64) {
+        let buf : [u8; 8] = unsafe { std::mem::transmute(num) };
+        out.write(&buf).ok().expect("Can't write to file");
+    }
+}
+
+./core/src/simulation/mod.rs:
+
+extern crate anymap;
+extern crate time as system_time;
+
+pub mod person;
+pub mod scene;
+mod forces;
+mod time;
+
+use self::anymap::AnyMap;
+
+use self::forces::Forces;
+use self::scene::Scene;
+use self::time::Time;
+
+use ::output::Output;
+
+pub struct Simulation {
+    configuration: AnyMap,
+    forces: Forces,
+    pub scene: Scene,
+    pub time: Time,
+}
+
+impl Simulation {
+    pub fn new(configuration: AnyMap) -> Simulation {
+        let time = Time::new(&configuration);
+        let forces = Forces::new(&configuration);
+        let scene = Scene::new(&configuration);
+        Simulation{ configuration: configuration, forces: forces, scene: scene, time: time }
+    }
+
+    pub fn main_loop(&mut self) {
+        info!("Starting main simulation loop");
+        let mut output = Output::new(&self.configuration);
+        debug!("Sending init message to output");
+        output.send_init();
+        let mut avg_tick : f64 = 0.0_f64;
+        while !self.time.is_passed() {
+            let t1 = system_time::precise_time_ns();
+            self.update_state();
+            output.dump_state(self);
+            self.time.next_tick();
+            let t2 = system_time::precise_time_ns();
+            avg_tick += (t2 - t1) as f64;
+        }
+        avg_tick = avg_tick / self.time.end_time * self.time.tick;
+        info!("Avg tick took {} ns", avg_tick.round());
+        info!("Simulation done.");
+    }
+
+    fn update_state(&mut self) {
+        let mut total_forces_for_person = Vec::new();
+        total_forces_for_person.reserve(self.scene.people.len());
+        for person in self.scene.people.iter() {
+            let mut total_force = self.forces.total_force_for_person(person, &self.scene);
+            total_force = total_force / self.scene.scale;
+            total_forces_for_person.push(total_force);
+        }
+        for (person, total_force) in self.scene.people.iter_mut().zip(total_forces_for_person.iter()) {
+            if total_force.length() < 0.01_f64 {
+                warn!("Small total force: {}", total_force.length());
+            }
+            person.move_by(*total_force, self.time.tick);
+        }
+
+        self.scene.spawn_people(&self.forces, self.time.tick);
+        self.scene.process_reached_destination_people();
+    }
+}
+
+
+./core/src/simulation/scene.rs:
+
+extern crate anymap;
+extern crate linked_list;
+
+use self::linked_list::LinkedList;
+use self::anymap::AnyMap;
+
+use ::simulation::person::Person;
+use ::simulation::forces::Forces;
+
+use ::utils::linelg::Line;
+use ::utils::linelg::Point;
+use ::utils::linelg::distance::DistanceTo;
+
+pub const APPROX_PERSON_RADIUS: f64 = 0.5_f64;
+
+pub struct Scene {
+    pub people: LinkedList<Person>,
+    pub geometry: Vec<Line>,
+    paths: Vec<Path>,
+    pub scale: f64,
+    pub width: u16,
+    pub height: u16,
+}
+
+pub struct Path {
+    pub id: u8,
+    spawn_area: SpawnArea,
+    pub target_areas: Vec<Area>,
+}
+
+struct SpawnArea {
+    area: Area,
+    rate: f64,
+    ticks_to_next_spawn: u16,
+}
+
+pub struct Area {
+    pub p0: Point, pub p1: Point,
+    pub sequence_no: u8,
+}
+
+impl Area {
+    fn random_inside(&self) -> Point {
+        Point::new(
+            ::utils::distributions::generate_uniform(self.p0.x, self.p1.x),
+            ::utils::distributions::generate_uniform(self.p0.y, self.p1.y)
+        )
+    }
+}
+
+impl Scene {
+    pub fn new(configuration: &AnyMap) -> Scene {
+        let scene_width = config!(configuration, SceneWidth);
+        let scene_height = config!(configuration, SceneHeight);
+        let scene_scale = config!(configuration, SceneScale);
+
+        let scene_walls = config!(configuration, SceneWalls);
+        let scene_spawn_areas = config!(configuration, SceneSpawnAreas);
+        let scene_target_areas = config!(configuration, SceneTargetAreas);
+        let spawn_rate = config!(configuration, SpawnRate);
+
+        let parsed_geometry = Scene::parse_walls(scene_walls);
+        let parsed_paths = Scene::parse_paths(scene_spawn_areas, scene_target_areas, spawn_rate);
+
+        Scene{ people: LinkedList::new(), geometry: parsed_geometry, paths: parsed_paths,
+               scale: scene_scale, width: scene_width, height: scene_height }
+    }
+
+    fn parse_walls(walls: Vec<::configuration::SceneWall>) -> Vec<Line> {
+        let mut geometry = Vec::new();
+        for wall in walls.iter() {
+            geometry.push(Line::new_from_raw(wall.x0 as f64, wall.y0 as f64, wall.x1 as f64, wall.y1 as f64))
+        }
+        geometry
+    }
+
+    fn parse_paths(spawn_areas: Vec<::configuration::SceneSpawnArea>, target_areas: Vec<::configuration::SceneTargetArea>, spawn_rate: f64) -> Vec<Path> {
+        let mut paths = Vec::new();
+        for scene_spawn_area in spawn_areas.iter() {
+            let id = scene_spawn_area.id;
+            let spawn_area = SpawnArea{ area: Area{p0: Point::new(scene_spawn_area.x0 as f64, scene_spawn_area.y0 as f64),
+                                                   p1: Point::new(scene_spawn_area.x1 as f64, scene_spawn_area.y1 as f64),
+                                                   sequence_no: 0 },
+                                        rate: spawn_rate,
+                                        ticks_to_next_spawn: 1 };
+
+            let mut parsed_target_areas : Vec<Area> = Vec::new();
+            for scene_target_area in target_areas.iter() {
+                if scene_target_area.id == scene_spawn_area.id {
+                    let target_area = Area{ p0: Point::new(scene_target_area.x0 as f64, scene_target_area.y0 as f64),
+                                            p1: Point::new(scene_target_area.x1 as f64, scene_target_area.y1 as f64),
+                                            sequence_no: scene_target_area.sequence_no };
+                    parsed_target_areas.push(target_area)
+                }
+            }
+            parsed_target_areas.sort_by(|a, b| a.sequence_no.cmp(&b.sequence_no));
+
+            paths.push(Path{ id: id, spawn_area: spawn_area, target_areas: parsed_target_areas });
+        }
+        paths
+    }
+
+    pub fn spawn_people(&mut self, forces: &Forces, tick: f64) {
+        let mut paths_needed_spawn = Vec::new();
+        let paths_count = self.paths.len();
+
+        for (path, index) in self.paths.iter_mut().zip(0 .. paths_count) {
+            let ref mut spawn_area = path.spawn_area;
+            spawn_area.ticks_to_next_spawn -= 1;
+            if spawn_area.ticks_to_next_spawn == 0 {
+                paths_needed_spawn.push(index);
+                spawn_area.ticks_to_next_spawn = (1_f64 / spawn_area.rate / tick).ceil() as u16;
+            }
+        }
+
+        for path_index in paths_needed_spawn.iter() {
+            self.spawn_in_path(forces, *path_index);
+        }
+    }
+
+    fn spawn_in_path(&mut self, forces: &Forces, path_index: usize) {
+        let path = &self.paths[path_index];
+
+        let mut coordinates: Option<Point> = None;
+        for i in (1 .. 10) {
+            let try_point = Point::new(
+                ::utils::distributions::generate_uniform(path.spawn_area.area.p0.x, path.spawn_area.area.p1.x),
+                ::utils::distributions::generate_uniform(path.spawn_area.area.p0.y, path.spawn_area.area.p1.y)
+            );
+            if self.is_free(&try_point) {
+                coordinates = Some(try_point);
+                break;
+            }
+        }
+
+        match coordinates {
+            Some(point) => {
+                let new_person = Person{
+                    coordinates: point.clone(),
+                    heading: 270_f64.to_radians(),
+                    path_id: path.id,
+                    current_target_index: 0,
+                    current_target_point: path.target_areas[0].random_inside(),
+                    forces_params: forces.generate_person_forces_param()
+                };
+                self.people.push_back(new_person);
+            },
+            None => warn!("Couldn't find a place for a new person in 10 attempts, skipping ...")
+        }
+    }
+
+    fn is_free(&self, p: &Point) -> bool {
+        let mut free = true;
+        for person in self.people.iter() {
+            if person.coordinates.distance_sqr(p) < (APPROX_PERSON_RADIUS / self.scale).powi(2) {
+                free = false;
+                break;
+            }
+        }
+        free
+    }
+
+    pub fn process_reached_destination_people(&mut self) {
+        let mut cursor = self.people.cursor();
+        loop {
+            let next_or_remove = match cursor.peek_next() {
+                Some(person) => {
+                    if person.reached_destination(&self.paths[person.path_id as usize]) {
+                        person.current_target_index += 1;
+                        let ref path = self.paths[person.path_id as usize];
+                        if (person.current_target_index as usize) < path.target_areas.len() {
+                            person.current_target_point = path.target_areas[person.current_target_index as usize].random_inside();
+                            // next
+                            true
+                        } else {
+                            // remove
+                            false
+                        }
+                    } else {
+                        // next
+                        true
+                    }
+                }
+                None => break
+            };
+            if next_or_remove {
+                cursor.next();
+            } else {
+                cursor.remove();
+            }
+        }
+    }
+
+    pub fn get_density_map(&self) -> Vec<Vec<f64>> {
+        const KERNEL_C : f64 = 2_f64;
+
+        let mut res = Vec::new();
+        res.reserve(self.height as usize);
+        for i in (0 .. self.height) {
+            let mut inner_vec = Vec::new();
+            inner_vec.reserve(self.width as usize);
+            for j in (0 .. self.width) {
+                inner_vec.push(0_f64);
+            }
+            res.push(inner_vec);
+        }
+
+        let effective_c = (KERNEL_C / self.scale).round() as i32;
+        for person in &self.people {
+            for i in (person.coordinates.y as i32 - 3 * effective_c .. person.coordinates.y as i32 + 3 * effective_c) {
+                for j in (person.coordinates.x as i32 - 3 * effective_c .. person.coordinates.x as i32 + 3 * effective_c) {
+                    if i > 0 && i < self.height as i32 &&
+                       j > 0 && j < self.width  as i32 {
+                        let density_point = Point::new(j as f64, i as f64);
+                        let density_addition = (1_f64 - density_point.distance_sqr(&person.coordinates) / 9_f64 / (effective_c as f64).powi(2));
+                        if density_addition > 0_f64 {
+                            res[i as usize][j as usize] += density_addition.powi(2);
+                        }
+                    }
+                }
+            }
+        }
+        res
+    }
+}
+
+./core/src/simulation/time.rs:
+
+extern crate anymap;
+
+use self::anymap::AnyMap;
+
+pub struct Time {
+    pub current_time: f64,
+    pub end_time: f64,
+    pub tick: f64
+}
+
+impl Time {
+    pub fn new(configuration: &AnyMap) -> Time {
+        let end_time = config!(configuration, TimeEndTime);
+        let tick = config!(configuration, TimeTick);
+
+        Time{ current_time: 0.0_f64, end_time: end_time as f64, tick: tick }
+    }
+
+    pub fn is_passed(&self) -> bool {
+        self.current_time >= self.end_time
+    }
+
+    pub fn next_tick(&mut self) {
+        self.current_time += self.tick;
+    }
+}
+
+./core/src/simulation/person.rs:
+
+use ::utils::linelg::Vector;
+use ::utils::linelg::Point;
+
+use ::simulation::forces::PersonForcesParams;
+use ::simulation::scene::Path;
+
+#[derive(Debug)]
+pub struct Person {
+    pub coordinates: Point,
+    pub heading: f64,
+    pub path_id: u8,
+    pub current_target_point: Point,
+    pub current_target_index: u16,
+    pub forces_params: PersonForcesParams,
+}
+
+impl Person {
+    pub fn move_by(&mut self, total_force: Vector, t: f64) {
+        let INSTANT_HEADING_CHANGE_THRESHOLD: f64 = 10_f64.to_radians();
+        let TURN_RATE: f64 = 5_f64.to_radians();
+
+        let mut new_heading = total_force.y.atan2(total_force.x);
+        if new_heading < 0_f64 {
+            new_heading += 2_f64 * ::std::f64::consts::PI;
+        }
+        let mut heading_change = new_heading - self.heading;
+        if heading_change > ::std::f64::consts::PI {
+            heading_change = - 2_f64 * ::std::f64::consts::PI + heading_change;
+        } else if heading_change < - ::std::f64::consts::PI {
+            heading_change = 2_f64 * ::std::f64::consts::PI + heading_change;
+        }
+        let adjusted_total_force = if heading_change.abs() > INSTANT_HEADING_CHANGE_THRESHOLD {
+            new_heading = if heading_change > 0_f64 {
+                self.heading + TURN_RATE
+            } else {
+                self.heading - TURN_RATE
+            };
+            if new_heading < 0_f64 {
+                new_heading += 2_f64 * ::std::f64::consts::PI;
+            }
+            Vector::new(
+                new_heading.cos(),
+                new_heading.sin()
+            ) * total_force.length().min(4_f64)
+        } else {
+            total_force
+        };
+        self.coordinates = self.coordinates + adjusted_total_force * t;
+        self.heading = new_heading;
+    }
+
+    pub fn reached_destination(&self, path: &Path) -> bool {
+        let target = &path.target_areas[self.current_target_index as usize];
+        self.coordinates.x > target.p0.x && self.coordinates.x < target.p1.x &&
+            self.coordinates.y > target.p0.y && self.coordinates.y < target.p1.y
+    }
+}
+
+./core/src/simulation/forces/mod.rs:
+
+extern crate anymap;
+
+mod repulsion;
+mod target;
+
+use std::ops::Deref;
+
+macro_rules! trait_enum {
+    (enum $name:ident : $_trait:ident { $($var:ident($ty:ty)),* }) => {
+        #[derive(Debug)]
+        pub enum $name {
+            $(
+                $var($ty),
+            )*
+        }
+
+        impl<'a> Deref for $name {
+            type Target = ($_trait + 'a);
+            fn deref<'b>(&'b self) -> &'b $_trait {
+                match self {
+                    $(& $name::$var(ref x) => x,)*
+                }
+            }
+        }
+    }
+}
+
+use self::anymap::AnyMap;
+
+use self::repulsion::RepulsionForce;
+use self::target::TargetForce;
+
+use ::simulation::person::Person;
+use ::simulation::scene::Scene;
+
+use ::configuration::DistributionValue;
+use ::utils::linelg::Vector;
+
+pub trait Forceable {
+    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector;
+}
+
+pub struct Forces {
+    used_forces: Vec<Force>,
+    target_speed: DistributionValue,
+    repulsion_coeff: DistributionValue,
+}
+
+#[derive(Debug,Clone)]
+pub struct PersonForcesParams {
+    pub target_speed: f64,
+    pub repulsion_coeff: f64,
+}
+
+trait_enum! {
+    enum Force : Forceable {
+        Target(TargetForce),
+        Repulsion(RepulsionForce)
+    }
+}
+
+
+impl Forces {
+    pub fn new(configuration: &AnyMap) -> Forces {
+        let target_speed = config!(configuration, ForcesTargetSpeed);
+        let repulsion_coeff = config!(configuration, ForcesRepulsionCoeff);
+
+        let used_forces = vec![
+            Force::Target(TargetForce),
+            Force::Repulsion(RepulsionForce)
+        ];
+        Forces{ used_forces: used_forces, target_speed: target_speed, repulsion_coeff: repulsion_coeff }
+    }
+
+    pub fn total_force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
+        let mut total_force = Vector::zero();
+        for force in self.used_forces.iter() {
+            total_force = total_force + force.deref().force_for_person(person, scene);
+        }
+        total_force
+    }
+
+    pub fn generate_person_forces_param(&self) -> PersonForcesParams {
+        let mut res = PersonForcesParams{
+            target_speed: ::utils::distributions::generate(&self.target_speed),
+            repulsion_coeff: ::utils::distributions::generate(&self.repulsion_coeff),
+        };
+        res.target_speed = res.target_speed.max(0.1);
+        res.repulsion_coeff = res.repulsion_coeff.max(0.01);
+        res
+    }
+}
+
+./core/src/simulation/forces/target.rs:
+
+use ::simulation::forces::Force;
+use ::simulation::forces::Forceable;
+
+use ::simulation::person::Person;
+use ::simulation::scene::Scene;
+
+use ::configuration::DistributionValue;
+use ::utils::linelg::Vector;
+
+#[derive(Debug)]
+pub struct TargetForce;
+
+impl Forceable for TargetForce {
+    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
+        let target_speed = person.forces_params.target_speed;
+        let direction = person.current_target_point - person.coordinates;
+        let force = direction.normalized() * target_speed;
+        force
+    }
+}
+
+./core/src/simulation/forces/repulsion.rs:
+
+use ::std::fmt::Debug;
+
+use ::simulation::forces::Force;
+use ::simulation::forces::Forceable;
+
+use ::simulation::person::Person;
+use ::simulation::scene::Scene;
+
+use ::configuration::DistributionValue;
+use ::utils::linelg::distance::DistanceTo;
+use ::utils::linelg::Vector;
+use ::utils::linelg::Point;
+
+#[derive(Debug)]
+pub struct RepulsionForce;
+
+impl RepulsionForce {
+    fn repulsion_from_obstacle<T: Debug>(&self, person: &Person, obstacle: &T, scene_scale: f64) -> Vector where Point: DistanceTo<T> {
+        // some magic numbers
+        const DISTANCE_SQR_THRESHOLD: f64 = 125_f64;
+        const REPULSION_ELLIPSE_R_X: f64 = 1.0_f64;
+        const REPULSION_ELLIPSE_R_Y: f64 = 2.0_f64;
+
+        let nearest_point = person.coordinates.nearest_point(obstacle);
+        let direction = nearest_point - person.coordinates;
+        let direction_length_sqr_in_meters = direction.length_sqr() * scene_scale;
+        if direction_length_sqr_in_meters < DISTANCE_SQR_THRESHOLD && direction.length_sqr() != 0.0 {
+            let angle = direction.y.atan2(direction.x);
+            let ellipse_coeff = self.ellipse_sqr_radius_at_angle(REPULSION_ELLIPSE_R_X, REPULSION_ELLIPSE_R_Y, angle);
+            // let distance_coeff = 1_f64 / ((direction_length_sqr_in_meters.sqrt() - ::simulation::scene::APPROX_PERSON_RADIUS) * 5_f64);
+            let distance_coeff = (- 1_f64 / 2.5_f64 * (direction_length_sqr_in_meters.sqrt() - ::simulation::scene::APPROX_PERSON_RADIUS) + 3_f64).max(0_f64).min(3_f64);
+            - direction.normalized() * distance_coeff * ellipse_coeff.sqrt()
+        } else {
+            Vector::zero()
+        }
+    }
+
+    fn ellipse_sqr_radius_at_angle(&self, r_x: f64, r_y: f64, angle: f64) -> f64 {
+        (r_x * r_y).powi(2) / (r_x.powi(2) * angle.sin().powi(2) + r_y.powi(2) * angle.cos().powi(2))
+    }
+}
+
+impl Forceable for RepulsionForce {
+    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
+        let repulsion_coeff = person.forces_params.repulsion_coeff;
+        let mut force = Vector::zero();
+        for obstacle in scene.geometry.iter() {
+            force = force + 2_f64 * self.repulsion_from_obstacle(&person, obstacle, scene.scale);
+        }
+        for other_person in scene.people.iter() {
+            force = force + self.repulsion_from_obstacle(&person, &other_person.coordinates, scene.scale);
+        }
+        let force_power = force.length().min(4_f64);
+        if force_power != 0_f64 {
+            force = force.normalized() * force_power;
+        }
+        force = force * repulsion_coeff;
+        force
+    }
+}
+
+./core/src/utils/distributions.rs:
+
+extern crate rand;
+
+use self::rand::Rng;
+
+use configuration::DistributionValue;
+
+pub fn generate(distribution_info: &DistributionValue) -> f64 {
+    match *distribution_info {
+        DistributionValue::UniformDistributionValue{from: from, to: to} => generate_uniform(from, to),
+        DistributionValue::NormalDistributionValue{mean: mean, std_deviation: std_deviation} => generate_normal(mean, std_deviation),
+        DistributionValue::TimeInfiniteDistributionValue{avg_rate: avg_rate, rate_deviation: rate_deviation} => avg_rate * rate_deviation,
+    }
+}
+
+pub fn generate_uniform(from: f64, to: f64) -> f64 {
+    let rand = rand::random::<f64>();
+    from + rand * (to - from)
+}
+
+pub fn generate_normal(mean: f64, std_deviation: f64) -> f64 {
+    let group_n = 6;
+    let mut sum = 0.0f64;
+    let mut rng = rand::thread_rng();
+
+    for i in (0 .. group_n) {
+        sum += rng.gen::<f64>();
+    }
+
+    mean + std_deviation * f64::sqrt(12_f64 / group_n as f64) * (sum - group_n as f64 / 2.0_f64)
+}
+
+./core/src/utils/mod.rs:
+
+pub mod linelg;
+pub mod distributions;
+
+./core/src/utils/linelg/mod.rs:
+
+use std::ops::{Index, Mul, Add};
+
+// Re-export the linalg types from the internal modules
+pub use self::vector::Vector;
+pub use self::point::Point;
+pub use self::line::Line;
+
+pub mod vector;
+pub mod point;
+pub mod line;
+pub mod distance;
+
+static EPS : f64 = 0.00001f64;
+
+pub fn dot<A: Index<usize, Output = f64>, B: Index<usize, Output = f64>>(a: &A, b: &B) -> f64 {
+    a[0] * b[0] + a[1] * b[1]
+}
+
+pub fn clamp<T: PartialOrd>(x: T, min: T, max: T) -> T {
+    if x < min { min } else if x > max { max } else { x }
+}
+
+#[test]
+fn test_dot() {
+    let a = Vector::new(1f64, 2f64);
+    let b = Vector::new(4f64, 5f64);
+    assert!(dot(&a, &b) == 1f64 * 4f64 + 2f64 * 5f64);
+}
+
+./core/src/utils/linelg/vector.rs:
+
+use std::f64;
+use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct Vector {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Vector {
+    pub fn new(x: f64, y: f64) -> Vector {
+        Vector { x: x, y: y }
+    }
+
+    pub fn zero() -> Vector {
+        Vector { x: 0f64, y: 0f64 }
+    }
+
+    pub fn length_sqr(&self) -> f64 {
+        self.x * self.x + self.y * self.y
+    }
+
+    pub fn length(&self) -> f64 {
+        f64::sqrt(self.length_sqr())
+    }
+
+    pub fn normalized(&self) -> Vector {
+        let len = self.length();
+        Vector { x: self.x / len, y: self.y / len }
+    }
+}
+
+impl Add for Vector {
+    type Output = Vector;
+
+    fn add(self, rhs: Vector) -> Vector {
+        Vector { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
+impl Sub for Vector {
+    type Output = Vector;
+
+    fn sub(self, rhs: Vector) -> Vector {
+        Vector { x: self.x - rhs.x, y: self.y - rhs.y }
+    }
+}
+
+impl Mul for Vector {
+    type Output = Vector;
+
+    fn mul(self, rhs: Vector) -> Vector {
+        Vector { x: self.x * rhs.x, y: self.y * rhs.y }
+    }
+}
+
+impl Mul<f64> for Vector {
+    type Output = Vector;
+
+    fn mul(self, rhs: f64) -> Vector {
+        Vector { x: self.x * rhs, y: self.y * rhs }
+    }
+}
+
+impl Mul<Vector> for f64 {
+    type Output = Vector;
+
+    fn mul(self, rhs: Vector) -> Vector {
+        Vector { x: self * rhs.x, y: self * rhs.y }
+    }
+}
+
+impl Div for Vector {
+    type Output = Vector;
+
+    fn div(self, rhs: Vector) -> Vector {
+        Vector { x: self.x / rhs.x, y: self.y / rhs.y }
+    }
+}
+
+impl Div<f64> for Vector {
+    type Output = Vector;
+
+    fn div(self, rhs: f64) -> Vector {
+        Vector { x: self.x / rhs, y: self.y / rhs }
+    }
+}
+
+impl Neg for Vector {
+    type Output = Vector;
+
+    fn neg(self) -> Vector {
+        Vector { x: -self.x, y: -self.y }
+    }
+}
+
+impl Index<usize> for Vector {
+    type Output = f64;
+
+    fn index(&self, i: usize) -> &f64 {
+        match i {
+            0 => &self.x,
+            1 => &self.y,
+            _ => panic!("Invalid index into vector"),
+        }
+    }
+}
+
+impl IndexMut<usize> for Vector {
+    fn index_mut(&mut self, i: usize) -> &mut f64 {
+        match i {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            _ => panic!("Invalid index into vector"),
+        }
+    }
+}
+
+#[test]
+fn test_len_sqr() {
+    let v = Vector::new(1f64, 2f64);
+    assert!(v.length_sqr() == 1f64 + 4f64);
+}
+
+#[test]
+fn test_idx() {
+    let mut v = Vector::new(1f64, 2f64);
+    assert!(v[0] == 1f64 && v[1] == 2f64);
+    {
+        let x = &mut v[1];
+        *x = 5f64;
+    }
+    assert!(v[1] == 5f64);
+}
+
+
+./core/src/utils/linelg/point.rs:
+
+use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
+use utils::linelg::Vector;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Point {
+    pub fn new(x: f64, y: f64) -> Point {
+        Point { x: x, y: y }
+    }
+
+    pub fn zero() -> Point {
+        Point { x: 0f64, y: 0f64 }
+    }
+}
+
+impl Add for Point {
+    type Output = Point;
+
+    fn add(self, rhs: Point) -> Point {
+        Point { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
+impl Add<Vector> for Point {
+    type Output = Point;
+
+    fn add(self, rhs: Vector) -> Point {
+        Point { x: self.x + rhs.x, y: self.y + rhs.y }
+    }
+}
+
+impl Sub for Point {
+    type Output = Vector;
+
+    fn sub(self, rhs: Point) -> Vector {
+        Vector { x: self.x - rhs.x, y: self.y - rhs.y }
+    }
+}
+
+impl Sub<Vector> for Point {
+    type Output = Point;
+
+    fn sub(self, rhs: Vector) -> Point {
+        Point { x: self.x - rhs.x, y: self.y - rhs.y }
+    }
+}
+
+impl Mul<f64> for Point {
+    type Output = Point;
+
+    fn mul(self, rhs: f64) -> Point {
+        Point { x: self.x * rhs, y: self.y * rhs }
+    }
+}
+
+impl Mul<Point> for f64 {
+    type Output = Point;
+
+    fn mul(self, rhs: Point) -> Point {
+        Point { x: self * rhs.x, y: self * rhs.y }
+    }
+}
+
+impl Div for Point {
+    type Output = Point;
+
+    fn div(self, rhs: Point) -> Point {
+        Point { x: self.x / rhs.x, y: self.y / rhs.y }
+    }
+}
+
+impl Div<f64> for Point {
+    type Output = Point;
+
+    fn div(self, rhs: f64) -> Point {
+        Point { x: self.x / rhs, y: self.y / rhs }
+    }
+}
+
+impl Neg for Point {
+    type Output = Point;
+
+    fn neg(self) -> Point {
+        Point { x: -self.x, y: -self.y }
+    }
+}
+
+impl Index<usize> for Point {
+    type Output = f64;
+
+    fn index(&self, i: usize) -> &f64 {
+        match i {
+            0 => &self.x,
+            1 => &self.y,
+            _ => panic!("Invalid index into point"),
+        }
+    }
+}
+
+impl IndexMut<usize> for Point {
+    fn index_mut(&mut self, i: usize) -> &mut f64 {
+        match i {
+            0 => &mut self.x,
+            1 => &mut self.y,
+            _ => panic!("Invalid index into point"),
+        }
+    }
+}
+
+./core/src/utils/linelg/line.rs:
+
+use std::f64;
+use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
+use utils::linelg::Point;
+use utils::linelg::distance::DistanceTo;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct Line {
+    pub from: Point,
+    pub to: Point,
+}
+
+impl Line {
+    pub fn new(from: Point, to: Point) -> Line {
+        Line { from: from, to: to }
+    }
+
+    pub fn new_from_raw(x0 : f64, y0 : f64, x1 : f64, y1 : f64) -> Line {
+        let from = Point{ x: x0, y: y0 };
+        let to = Point{ x: x1, y: y1 };
+        Line::new(from, to)
+    }
+
+    pub fn length_sqr(&self) -> f64 {
+        self.to.distance_sqr(&self.from)
+    }
+
+    pub fn length(&self) -> f64 {
+        self.to.distance(&self.from)
+    }
+}
+
+impl Neg for Line {
+    type Output = Line;
+
+    fn neg(self) -> Line {
+        Line { from: self.to, to: self.from }
+    }
+}
+
+#[test]
+fn test_len_sqr() {
+    let l = Line::new_from_raw(0f64, 0f64, 4f64, 0f64);
+    assert!(l.length_sqr() == 16f64);
+}
+
+./core/src/utils/linelg/distance.rs:
+
+use utils::linelg::Point;
+use utils::linelg::Line;
+
+pub trait DistanceTo<T> {
+    fn nearest_point(&self, other: &T) -> Point;
+    fn distance_sqr(&self, other: &T) -> f64;
+    fn distance(&self, other: &T) -> f64;
+}
+
+impl DistanceTo<Point> for Point {
+    fn nearest_point(&self, other: &Point) -> Point {
+        other.clone()
+    }
+
+    fn distance_sqr(&self, a: &Point) -> f64 {
+        (*self - *a).length_sqr()
+    }
+
+    fn distance(&self, a: &Point) -> f64 {
+        (*self - *a).length()
+    }
+}
+
+impl DistanceTo<Line> for Point {
+    fn nearest_point(&self, line: &Line) -> Point {
+        let line_length = line.length_sqr();
+        if line_length == 0f64 {
+            line.from.clone()
+        } else {
+            let t = ::utils::linelg::dot(&(*self - line.from), &(line.to - line.from)) / line_length;
+            if t < 0f64 {
+                line.from.clone()
+            } else if t > 1f64 {
+                line.to.clone()
+            } else {
+                line.from + t * (line.to - line.from)
+            }
+        }
+    }
+
+    fn distance_sqr(&self, line: &Line) -> f64 {
+        let nearest_point = self.nearest_point(line);
+        self.distance_sqr(&nearest_point)
+    }
+
+    fn distance(&self, line: &Line) -> f64 {
+        let nearest_point = self.nearest_point(line);
+        self.distance(&nearest_point)
+    }
+}
+
+#[test]
+fn test_distance_points_sqr() {
+    let a = Point::new(0f64, 0f64);
+    let b = Point::new(3f64, 4f64);
+    assert!(b.distance_sqr(&a) == 25f64);
+}
+
+#[test]
+fn test_distance_from_point_to_vertical_line() {
+    let p = Point::new(1f64, 0f64);
+    let l = Line::new_from_raw(3f64, -4f64, 3f64, 4f64);
+    let nearest_point = p.nearest_point(&l);
+    assert!((nearest_point.x - 3f64).abs() < ::utils::linelg::EPS);
+    assert!((nearest_point.y - 0f64).abs() < ::utils::linelg::EPS);
+    assert!((p.distance_sqr(&l) - 4f64).abs() < ::utils::linelg::EPS);
+    assert!((p.distance(&l) - 2f64).abs() < ::utils::linelg::EPS);
+}
+
+#[test]
+fn test_distance_from_point_to_horizontal_line() {
+    let p = Point::new(0f64, 4f64);
+    let l = Line::new_from_raw(-4f64, 5f64, 4f64, 5f64);
+    let nearest_point = p.nearest_point(&l);
+    assert!((nearest_point.x - 0f64).abs() < ::utils::linelg::EPS);
+    assert!((nearest_point.y - 5f64).abs() < ::utils::linelg::EPS);
+    assert!((p.distance_sqr(&l) - 1f64).abs() < ::utils::linelg::EPS);
+    assert!((p.distance(&l) - 1f64).abs() < ::utils::linelg::EPS);
+}
+
+./animator/controller.h:
+
+#ifndef _CONTROLLER_H_
+#define _CONTROLLER_H_
+
+#include "sdl.h"
+
+struct ControllerData {
+  double current_simulation_time;
+  double start_time;
+  struct SDLData sdl_data;
+
+  const char *person_file_name;
+  double person_file_scale;
+  char* scene_file_name;
+  double scene_scale;
+
+  unsigned char density_map_enabled;
+};
+
+void controller_init_sdl(struct ControllerData*);
+void controller_read_init_message(struct ControllerData*);
+void controller_load_textures(struct ControllerData*);
+void controller_main_loop(struct ControllerData*);
+void controller_shutdown(struct ControllerData*);
+
+#endif
+
+./animator/sdl.c:
+
+#include "sdl.h"
+
+#include <math.h>
+#include <cairo.h>
+#include <librsvg/rsvg.h>
+
+SDL_Texture* sdl_load_svg(struct SDLData* sdl_data, const char* file, double scale, double angle);
+void sdl_error(const char* msg);
+void rsvg_error(const char* msg, GError* err);
+void cairo_error(const char* msg);
+
+void sdl_init(struct SDLData* sdl_data, const char* window_title)
+{
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+    sdl_error("SDL_Init");
+    exit(1);
+  }
+
+  sdl_data->window = SDL_CreateWindow(window_title, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+    SDL_WINDOW_SHOWN);
+  if (sdl_data->window == NULL)
+    sdl_error("SDL_CreateWindow");
+
+  sdl_data->renderer = SDL_CreateRenderer(sdl_data->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  if (sdl_data->renderer == NULL)
+    sdl_error("SDL_CreateRenderer");
+
+  SDL_SetRenderDrawColor(sdl_data->renderer, 255, 255, 255, 0);
+
+  sdl_clr(sdl_data);
+}
+
+void sdl_set_svg_background(struct SDLData* sdl_data, const char* file)
+{
+  sdl_data->background = sdl_load_svg(sdl_data, file, 1, 0);
+
+  SDL_Rect dst;
+  SDL_QueryTexture(sdl_data->background, NULL, NULL, &dst.w, &dst.h);
+
+  SDL_SetWindowSize(sdl_data->window, dst.w, dst.h);
+  sdl_data->scene_width = dst.w;
+  sdl_data->scene_height = dst.h;
+
+  int btpp = 4;
+  sdl_data->density_color_map = malloc(sdl_data->scene_width * sdl_data->scene_height * btpp);
+  sdl_clear_density(sdl_data);
+}
+
+void sdl_load_person_svg(struct SDLData* sdl_data, const char* file, double person_svg_scale, double scene_scale)
+{
+  double scale = scene_scale / person_svg_scale;
+  for (double angle = 0; angle < 360; angle++) {
+    sdl_data->person_textures[(int) angle] = sdl_load_svg(sdl_data, file, scale, angle);
+  }
+}
+
+void sdl_draw_texture(struct SDLData* sdl_data, SDL_Texture* texture)
+{
+  SDL_Rect dst;
+  dst.x = 0;
+  dst.y = 0;
+
+  SDL_QueryTexture(texture, NULL, NULL, &dst.w, &dst.h);
+  SDL_RenderCopy(sdl_data->renderer, texture, NULL, &dst);
+}
+
+void sdl_draw_person(struct SDLData* sdl_data, int x, int y, double heading)
+{
+  double angle = heading * 180 / M_PI + 90;
+  long angle_int = lround(angle);
+  while (angle_int >= 360) {
+    angle_int -= 360;
+  };
+  while (angle_int < 0) {
+    angle_int += 360;
+  };
+  if (angle_int > 359) {
+    fprintf(stderr, "ALARM!! %f %d\n", angle, angle_int);
+  }
+  SDL_Texture* texture = sdl_data->person_textures[angle_int];
+
+  SDL_Rect dst;
+  SDL_QueryTexture(texture, NULL, NULL, &dst.w, &dst.h);
+  dst.x = x - dst.w / 2;
+  dst.y = y - dst.h / 2;
+
+  SDL_RenderCopy(sdl_data->renderer, texture, NULL, &dst);
+}
+
+void sdl_set_density(struct SDLData* sdl_data, int x, int y, double density)
+{
+  density = fmin(density, sdl_data->density_map_max_threshold) - sdl_data->density_map_min_threshold;
+  unsigned char white_channel = (unsigned char) 255 - floor(density * 255 / (sdl_data->density_map_max_threshold - sdl_data->density_map_min_threshold));
+  sdl_data->density_color_map[y * sdl_data->scene_width + x] = 0xaaff0000 | (white_channel << 8) | white_channel;
+}
+
+void sdl_draw_density(struct SDLData* sdl_data)
+{
+  Uint32 rmask = 0x00ff0000;
+  Uint32 gmask = 0x0000ff00;
+  Uint32 bmask = 0x000000ff;
+  Uint32 amask = 0xff000000;
+  int bpp = 32;
+  int btpp = 4;
+  int stride = sdl_data->scene_width * btpp;
+
+  SDL_Surface *sdl_surface = SDL_CreateRGBSurfaceFrom((void *) sdl_data->density_color_map, sdl_data->scene_width, sdl_data->scene_height,
+    bpp, stride, rmask, gmask, bmask, amask);
+
+  if (sdl_surface == NULL)
+    sdl_error("SDL_CreateRGBSurfaceFrom");
+
+  SDL_Texture *tex = SDL_CreateTextureFromSurface(sdl_data->renderer, sdl_surface);
+
+  if (tex == NULL)
+    sdl_error("SDL_CreateTextureFromSurface");
+
+  SDL_FreeSurface(sdl_surface);
+
+  sdl_draw_texture(sdl_data, tex);
+  SDL_DestroyTexture(tex);
+}
+
+void sdl_clear_density(struct SDLData* sdl_data)
+{
+  for (int i = 0; i < sdl_data->scene_height; i++)
+    for (int j = 0; j < sdl_data->scene_width; j++) {
+      sdl_data->density_color_map[i * sdl_data->scene_width + j] = 0x00000000;
+    }
+}
+
+void sdl_clr(struct SDLData* sdl_data)
+{
+  SDL_RenderClear(sdl_data->renderer);
+}
+
+void sdl_update(struct SDLData* sdl_data)
+{
+  SDL_RenderPresent(sdl_data->renderer);
+}
+
+void sdl_shutdown(struct SDLData* sdl_data)
+{
+  free(sdl_data->density_color_map);
+  for (int i = 0; i < 360; i++) {
+    SDL_DestroyTexture(sdl_data->person_textures[i]);
+  }
+  SDL_DestroyTexture(sdl_data->background);
+  SDL_DestroyRenderer(sdl_data->renderer);
+  SDL_DestroyWindow(sdl_data->window);
+  SDL_Quit();
+}
+
+SDL_Texture* sdl_load_svg(struct SDLData* sdl_data, const char* file, double scale, double angle)
+{
+#ifdef DEBUG
+  printf("load_svg(%s)\n", file);
+#endif
+
+  // Create an RSVG Handle
+  GError *gerr = NULL;
+
+  RsvgHandle *rsvg_handle = rsvg_handle_new_from_file(file, &gerr);
+  if (rsvg_handle == NULL)
+    rsvg_error("rsvg_handle_new_from_file", gerr);
+
+  RsvgDimensionData dimensions;
+  rsvg_handle_get_dimensions(rsvg_handle, &dimensions);
+  int rwidth = dimensions.width;
+  int rheight = dimensions.height;
+
+#ifdef DEBUG
+  fprintf(stderr, "SVG is %d x %d\n", rwidth, rheight);
+#endif
+
+  int width = ((float) rwidth * scale);
+  int height = ((float) rheight * scale);
+
+#ifdef DEBUG
+  printf("scaling to %d x %d (%f scale)\n", width, height, scale);
+#endif
+
+  // scanline width
+  int btpp = 4;
+  int stride = width * btpp;
+  unsigned char *image = calloc(stride * height, 1);
+
+  cairo_surface_t *cairo_surf = cairo_image_surface_create_for_data(image,
+    CAIRO_FORMAT_ARGB32,
+    width, height, stride);
+
+  if (cairo_surface_status(cairo_surf) != CAIRO_STATUS_SUCCESS)
+    cairo_error("cairo_image_surface_create_for_data");
+
+  cairo_t *cr = cairo_create(cairo_surf);
+  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    cairo_error("cairo_create");
+
+  cairo_translate(cr, width / 2.0, height / 2.0);
+  cairo_rotate(cr, angle * M_PI / 180);
+  cairo_translate(cr, - width / 2.0, - height / 2.0);
+  cairo_scale(cr, scale, scale);
+  cairo_rectangle(cr, 0.0, 0.0, width, height);
+  cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.0);
+  cairo_fill(cr);
+  cairo_paint(cr);
+
+  rsvg_handle_render_cairo(rsvg_handle, cr);
+
+  cairo_surface_finish(cairo_surf);
+
+  // Adjust the SDL surface to match the cairo surface created
+  // (surface mask of ARGB)
+  Uint32 rmask = 0x00ff0000;
+  Uint32 gmask = 0x0000ff00;
+  Uint32 bmask = 0x000000ff;
+  Uint32 amask = 0xff000000;
+  int bpp = 32;
+
+  SDL_Surface *sdl_surface = SDL_CreateRGBSurfaceFrom((void *) image, width, height,
+    bpp, stride, rmask, gmask, bmask, amask);
+
+  if (sdl_surface == NULL)
+    sdl_error("SDL_CreateRGBSurfaceFrom");
+
+  SDL_Texture *tex = SDL_CreateTextureFromSurface(sdl_data->renderer, sdl_surface);
+
+  if (tex == NULL)
+    sdl_error("SDL_CreateTextureFromSurface");
+
+  SDL_FreeSurface(sdl_surface);
+
+  g_object_unref(rsvg_handle);
+  cairo_surface_destroy(cairo_surf);
+  free(image);
+  cairo_destroy(cr);
+
+  return tex;
+}
+
+void sdl_error(const char* msg)
+{
+  fprintf(stderr, "[SDL] Error: %s - %s\n", msg, SDL_GetError());
+  exit(1);
+}
+
+void rsvg_error(const char* msg, GError* err)
+{
+  fprintf(stderr, "[RSVG] Error: %s failed\n", msg);
+  exit(1);
+}
+
+void cairo_error(const char* msg)
+{
+  fprintf(stderr, "[Cairo] Error: %s failed\n", msg);
+  exit(1);
+}
+
+./animator/sdl.h:
+
+#ifndef _SDL_H_
+#define _SDL_H_
+
+#include <SDL.h>
+
+#define SCREEN_WIDTH 1280
+#define SCREEN_HEIGHT 720
+
+struct SDLData {
+  SDL_Window *window;
+  SDL_Renderer *renderer;
+  SDL_Texture* background;
+
+  SDL_Texture* person_textures[360];
+
+  double density_map_min_threshold;
+  double density_map_max_threshold;
+  Uint32* density_color_map;
+
+  int scene_width;
+  int scene_height;
+};
+
+void sdl_init(struct SDLData*, const char* window_title);
+void sdl_set_svg_background(struct SDLData*, const char* file);
+void sdl_load_person_svg(struct SDLData*, const char* file, double person_svg_scale, double scene_scale);
+void sdl_draw_texture(struct SDLData*, SDL_Texture*);
+void sdl_draw_person(struct SDLData*, int x, int y, double heading);
+void sdl_set_density(struct SDLData*, int x, int y, double density);
+void sdl_clear_density(struct SDLData*);
+void sdl_draw_density(struct SDLData*);
+
+void sdl_clr(struct SDLData*);
+void sdl_update(struct SDLData*);
+void sdl_shutdown(struct SDLData*);
+
+#endif
+
+./animator/controller.c:
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <time.h>
+#include <sys/time.h>
+#include <math.h>
+#include <sys/select.h>
+
+#include "controller.h"
+
+void controller_error(const char* msg);
+int wait_for_stdin();
+unsigned char controller_read_byte();
+unsigned short controller_read_short();
+unsigned long controller_read_long();
+char* controller_read_string();
+double controller_read_double();
+
+void controller_init_sdl(struct ControllerData* controller_data)
+{
+  struct SDLData sdl_data;
+  sdl_init(&sdl_data, "Crowd Simulator: Animator");
+  controller_data->sdl_data = sdl_data;
+}
+
+void controller_read_init_message(struct ControllerData* controller_data)
+{
+  controller_data->scene_file_name = controller_read_string();
+  controller_data->scene_scale = controller_read_double();
+  controller_data->density_map_enabled = controller_read_byte();
+  controller_data->sdl_data.density_map_min_threshold = controller_read_double();
+  controller_data->sdl_data.density_map_max_threshold = controller_read_double();
+}
+
+void controller_load_textures(struct ControllerData* controller_data)
+{
+  sdl_set_svg_background(&controller_data->sdl_data, controller_data->scene_file_name);
+  sdl_load_person_svg(&controller_data->sdl_data, controller_data->person_file_name, controller_data->person_file_scale, controller_data->scene_scale);
+}
+
+void controller_main_loop(struct ControllerData* controller_data)
+{
+  controller_data->current_simulation_time = 0.0;
+  struct timeval current_time;
+  gettimeofday(&current_time, NULL);
+  double current_time_double = current_time.tv_sec + current_time.tv_usec / 1000000.0;
+  controller_data->start_time = current_time_double;
+
+  while (!feof(stdin)) {
+    wait_for_stdin();
+    double data_time = controller_read_double();
+
+    sdl_clr(&controller_data->sdl_data);
+
+    sdl_draw_texture(&controller_data->sdl_data, controller_data->sdl_data.background);
+
+    if (controller_data->density_map_enabled) {
+      unsigned char has_densities = controller_read_byte();
+      if (has_densities) {
+        long densities_count = controller_read_long();
+        sdl_clear_density(&controller_data->sdl_data);
+        for (long i = 0; i < densities_count; i++) {
+            int x = controller_read_short();
+            int y = controller_read_short();
+            double density = controller_read_double();
+            sdl_set_density(&controller_data->sdl_data, x, y, density);
+          }
+      }
+      sdl_draw_density(&controller_data->sdl_data);
+    }
+
+    long people_count = controller_read_long();
+    for (long i = 0; i < people_count; i++) {
+      short person_x = controller_read_short();
+      short person_y = controller_read_short();
+      double heading = controller_read_double();
+      sdl_draw_person(&controller_data->sdl_data, person_x, person_y, heading);
+    }
+
+    gettimeofday(&current_time, NULL);
+    current_time_double = current_time.tv_sec + current_time.tv_usec / 1000000.0;
+    double delay = data_time - (current_time_double - controller_data->start_time);
+    if (delay > 0.0) {
+#ifdef DEBUG
+      fprintf(stderr, "Ahead of time on %f s, waiting\n", delay);
+#endif
+      // we are ahead of data, wait
+      struct timespec timespec;
+      timespec.tv_sec = (time_t) floor(delay);
+      timespec.tv_nsec = (long) floor(delay * 1000000000);
+      nanosleep(&timespec, NULL);
+    }
+    sdl_update(&controller_data->sdl_data);
+  }
+}
+
+void controller_shutdown(struct ControllerData* controller_data)
+{
+  sdl_shutdown(&controller_data->sdl_data);
+  free(controller_data->scene_file_name);
+}
+
+char* controller_read_string()
+{
+  short string_length = controller_read_short();
+  wait_for_stdin();
+  char* buf = malloc(string_length + 1);
+  int ret = fread(buf, 1, string_length, stdin);
+  if (ret == 0)
+    controller_error("Error while reading from stdin.");
+  buf[string_length] = '\0';
+  return buf;
+}
+
+unsigned char controller_read_byte()
+{
+  wait_for_stdin();
+  unsigned char buf;
+  int ret = fread(&buf, 1, 1, stdin);
+  if (ret == 0)
+    controller_error("Error while reading from stdin.");
+  return buf;
+}
+
+unsigned short controller_read_short()
+{
+  wait_for_stdin();
+  unsigned char buf[2] = {0, 0};
+  int ret = fread(&buf, 2, 1, stdin);
+  unsigned short res = ((buf[0] << 8) & 0xFF00) | (buf[1] & 0xFF);
+  if (ret == 0)
+    controller_error("Error while reading from stdin.");
+  return res;
+}
+
+unsigned long controller_read_long()
+{
+  wait_for_stdin();
+  unsigned char buf[4] = {0, 0, 0, 0};
+  int ret = fread(&buf, 4, 1, stdin);
+  unsigned long res = ((buf[0] << 24) & 0xFF000000) |((buf[1] << 16) & 0x00FF0000) |
+                      ((buf[2] << 8) & 0x0000FF00) | (buf[3] & 0x000000FF);
+  if (ret == 0)
+    controller_error("Error while reading from stdin.");
+  return res;
+}
+
+double controller_read_double()
+{
+  wait_for_stdin();
+  double res = 0;
+  int ret = fread(&res, 8, 1, stdin);
+  if (ret == 0)
+    controller_error("Error while reading from stdin.");
+  return res;
+}
+
+int wait_for_stdin()
+{
+  fd_set read_set;
+  FD_ZERO(&read_set);
+  FD_SET(STDIN_FILENO, &read_set);
+  int ret = select(STDIN_FILENO + 1, &read_set, NULL, NULL, NULL);
+  return ret != -1 && FD_ISSET(STDIN_FILENO, &read_set);
+}
+
+void controller_error(const char* msg)
+{
+  fprintf(stderr, "[Controller] %s\n", msg);
+  exit(1);
+}
+
+./animator/main.c:
+
+#include "controller.h"
+
+int main(int argc, char **argv)
+{
+  struct ControllerData controller_data;
+  controller_data.person_file_name = argv[1];
+  controller_data.person_file_scale = atof(argv[2]);
+  controller_init_sdl(&controller_data);
+  controller_read_init_message(&controller_data);
+  controller_load_textures(&controller_data);
+  controller_main_loop(&controller_data);
+  controller_shutdown(&controller_data);
+  return 0;
+}
+
+./preprocessor/run.rb:
+
+#!/usr/bin/env ruby
+
+require_relative 'sections/root'
+
+root_config = Sections::Root.new($stdin.read)
+$stdout.print root_config.to_config
+
+./preprocessor/utils/distribution.rb:
+
+require_relative '../sections/base'
+
+module Utils
+  class Distribution < ::Sections::Base
+    attr_reader :context_defaults, :current_section, :element
+
+    DISTRIBUTION_TYPES = {
+      'uniform' => 0x01, 'normal' => 0x02,
+      'time_infinite' => 0x03
+    }
+
+    DISTRIBUTION_TEMPLATES = {
+      # type from to
+      'uniform' => 'CEE',
+      # type mean std_deviation
+      'normal' => 'CEE',
+      # type avg_rate rate_deviation
+      'time_infinite' => 'CEE'
+    }
+
+    field name: 'distribution', type: :string
+
+    field name: 'from', type: :float
+    field name: 'to', type: :float
+
+    field name: 'mean', type: :float
+    field name: 'std_deviation', type: :float
+
+    field name: 'avg_rate', type: :float
+    field name: 'rate_deviation', type: :float
+
+    def fields
+      self.class.fields.map do |field_name, field|
+        field = field.merge(default: context_defaults[field[:name]]) unless field[:default]
+        [field_name, field]
+      end.to_h
+    end
+
+    def initialize(parent, context_defaults, current_section, element, &blc)
+      @context_defaults, @current_section, @element = context_defaults, current_section, element
+      super(parent, &blc)
+    end
+
+    def to_config
+      config = ""
+      distribution = get_data('distribution')
+      raise ArgumentError, "Unknow distribution: #{distribution}" unless %w[uniform normal time_infinite].include?(distribution)
+      distribution_template = DISTRIBUTION_TEMPLATES[distribution]
+      case distribution
+      when 'uniform'
+        config += [current_section, element, DISTRIBUTION_TYPES[distribution], get_data('from'), get_data('to')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + distribution_template)
+      when 'normal'
+        config += [current_section, element, DISTRIBUTION_TYPES[distribution], get_data('mean'), get_data('std_deviation')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + distribution_template)
+      when 'time_infinite'
+        config += [current_section, element, DISTRIBUTION_TYPES[distribution], get_data('avg_rate'), get_data('rate_deviation')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + distribution_template)
+      end
+      config += super.to_s
+      config
+    end
+
+    def config_param(field)
+      [current_section, distribution_elements[field], get_data(field)].pack(CONFIG_ITEM_TEMPLATE_PREFIX + DISTRIBUTION_ELEMENTS_TEMPLATES[field])
+    end
+  end
+end
+
+./preprocessor/sections/scene.rb:
+
+require 'crack/xml'
+
+require_relative 'base'
+
+module Sections
+  class Scene < Base
+    SCENE_SECTION = 0x01
+    SCENE_ELEMENTS = {
+      'wall' => 0x01, 'spawn-area' => 0x02, 'target-area' => 0x03,
+      'width' => 0x11, 'height' => 0x12, 'scale' => 0x13,
+      'file_name' => 0xFF
+    }
+    SCENE_ELEMENTS_TEMPLATES = {
+      # x0 y0 x1 y1
+      'wall' => 'S>S>S>S>',
+      # x0 y0 x1 y1 id
+      'spawn-area' => 'S>S>S>S>C',
+      # x0 y0 x1 y1 id seq_no(7bit)|last(1bit)
+      'target-area' => 'S>S>S>S>CC',
+
+      'width' => 'S>', 'height' => 'S>',
+      'scale' => 'E',
+      'file_name' => 'S>A:len:'
+    }
+
+    field name: 'file', type: :custom, parser: :read_scene_file
+    field name: 'scale', type: :float
+
+    def to_config
+      file_name = get_data('scene_file')
+      file_name_template = SCENE_ELEMENTS_TEMPLATES['file_name'].sub(':len:', file_name.size.to_s)
+      config = [SCENE_SECTION, SCENE_ELEMENTS['file_name'], file_name.size, file_name].pack(CONFIG_ITEM_TEMPLATE_PREFIX + file_name_template)
+
+      config += get_data('geometry').inject("") do |geom_conf, (geom_el_type, geom_el_data)|
+        data = [SCENE_SECTION, SCENE_ELEMENTS[geom_el_type], geom_el_data].flatten
+        geom_conf + data.pack(CONFIG_ITEM_TEMPLATE_PREFIX + SCENE_ELEMENTS_TEMPLATES[geom_el_type])
+      end
+      config += [SCENE_SECTION, SCENE_ELEMENTS['scale'], get_data('scale')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + SCENE_ELEMENTS_TEMPLATES['scale'])
+      config += super.to_s
+      config
+    end
+
+    def read_scene_file(file, &blc)
+      data['scene_file'] = file
+
+      scene_data = Crack::XML.parse(File.read(file))['svg']
+      geometry = []
+      geometry << ['width', scene_data['width'].to_i]
+      geometry << ['height', scene_data['height'].to_i]
+
+      scene_data['line'].select{ |line| line['x_csim_class'] == 'wall' }.each do |wall|
+        geometry << [
+          'wall',
+          [wall['x1'], wall['y1'], wall['x2'], wall['y2']].map(&:to_i)
+        ]
+      end
+      scene_data['rect'].select{ |rect| rect['x_csim_class'] == 'spawn-area' }.each do |spawn|
+        geometry << [
+          'spawn-area',
+          [spawn['x'].to_i, spawn['y'].to_i,
+           spawn['x'].to_i + spawn['width'].to_i, spawn['y'].to_i + spawn['height'].to_i,
+           spawn['x_csim_id'].to_i]
+        ]
+      end
+      scene_data['rect'].select{ |rect| rect['x_csim_class'] == 'target-area' }.each do |target|
+        geometry << [
+          'target-area',
+          [target['x'].to_i, target['y'].to_i,
+           target['x'].to_i + target['width'].to_i, target['y'].to_i + target['height'].to_i,
+           target['x_csim_id'].to_i,
+           (target['x_csim_seq_no'].to_i << 1) | (target['x_csim_last'] == 'true' ? 1 : 0)]
+        ]
+      end
+      data['geometry'] = geometry
+    end
+  end
+end
+
+./preprocessor/sections/forces.rb:
+
+require_relative 'base'
+
+module Sections
+  class Forces < Base
+    FORCES_SECTION = 0x04
+
+    field name: 'target', type: :descendant, klass: 'Force::Target'
+    field name: 'repulsion', type: :descendant, klass: 'Force::Repulsion'
+  end
+end
+
+require_relative 'force/repulsion'
+require_relative 'force/target'
+
+
+./preprocessor/sections/time.rb:
+
+require_relative 'base'
+
+module Sections
+  class Time < Base
+    TIME_SECTION = 0x02
+    TIME_ELEMENTS = {
+      'end_time' => 0x01, 'tick' => 0x02
+    }
+    TIME_ELEMENTS_TEMPLATES = {
+      # 32 bit time, FFFFFFFF - infinite
+      'end_time' => 'L>',
+      'tick' => 'E'
+    }
+
+    field name: 'end_time', type: :float
+    field name: 'tick', type: :float
+
+    def to_config
+      config = ""
+      end_time = get_data('end_time')
+      end_time_value = end_time == Float::INFINITY ? 2 ** 32 - 1 : end_time.round
+      config += [TIME_SECTION, TIME_ELEMENTS['end_time'], end_time_value].pack(CONFIG_ITEM_TEMPLATE_PREFIX + TIME_ELEMENTS_TEMPLATES['end_time'])
+      config += [TIME_SECTION, TIME_ELEMENTS['tick'], get_data('tick')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + TIME_ELEMENTS_TEMPLATES['tick'])
+      config += super.to_s
+      config
+    end
+  end
+end
+
+./preprocessor/sections/spawn.rb:
+
+require_relative 'base'
+
+module Sections
+  class Spawn < Base
+    SPAWN_SECTION = 0x03
+    SPAWN_ELEMENTS = {
+      'rate' => 0x01,
+      'time' => 0x02
+    }
+    SPAWN_ELEMENTS_TEMPLATES = {
+      'rate' => 'E'
+    }
+
+    field name: 'rate', type: :float
+    field name: 'time', type: :distribution, current_section: SPAWN_SECTION,
+          element: SPAWN_ELEMENTS['time'],
+          context_defaults: {'from' => 0.0, 'to' => 'ref:time.end_time'}
+
+    def to_config
+      config = ""
+      config += [SPAWN_SECTION, SPAWN_ELEMENTS['rate'], get_data('rate')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + SPAWN_ELEMENTS_TEMPLATES['rate'])
+      config += super.to_s
+      config
+    end
+  end
+end
+
+./preprocessor/sections/force/target.rb:
+
+require_relative '../base'
+
+module Sections::Force
+  class Target < Sections::Base
+    TARGET_SUBSECTION = 0x0200
+    TARGET_SPEED_ELEMENT = TARGET_SUBSECTION | 0x01
+
+    field name: 'speed', type: :distribution, current_section: Sections::Forces::FORCES_SECTION,
+          element: TARGET_SPEED_ELEMENT
+  end
+end
+
+./preprocessor/sections/force/repulsion.rb:
+
+require_relative '../base'
+
+module Sections::Force
+  class Repulsion < Sections::Base
+    REPULSION_SUBSECTION = 0x0100
+    REPULSION_COEFF_ELEMENT = REPULSION_SUBSECTION | 0x01
+
+    field name: 'coeff', type: :distribution, current_section: Sections::Forces::FORCES_SECTION,
+          element: REPULSION_COEFF_ELEMENT
+  end
+end
+
+./preprocessor/sections/fov.rb:
+
+require_relative 'base'
+
+module Sections
+  class Fov < Base
+    FOV_SECTION = 0x05
+    FOV_ELEMENTS = {
+      'forward' => 0x01, 'backward' => 0x02
+    }
+
+    FOV_ELEMENTS_TEMPLATES = {
+      'forward' => 'E', 'backward' => 'E'
+    }
+
+    field name: 'forward', type: :float
+    field name: 'backward', type: :float
+
+    def to_config
+      config = ""
+      config += [FOV_SECTION, FOV_ELEMENTS['forward'], get_data('forward')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + FOV_ELEMENTS_TEMPLATES['forward'])
+      config += [FOV_SECTION, FOV_ELEMENTS['backward'], get_data('backward')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + FOV_ELEMENTS_TEMPLATES['backward'])
+      config += super.to_s
+      config
+    end
+  end
+end
+
+./preprocessor/sections/density_map.rb:
+
+require_relative 'base'
+
+module Sections
+  class DensityMap < Base
+    DM_SECTION = 0x06
+    DM_ELEMENTS = {
+      'enabled' => 0x01, 'min_threshold' => 0x02, 'max_threshold' => 0x03
+    }
+
+    DM_ELEMENTS_TEMPLATES = {
+      'enabled' => 'C', 'min_threshold' => 'E', 'max_threshold' => 'E'
+    }
+
+    field name: 'enabled', type: :bool
+    field name: 'min_threshold', type: :float
+    field name: 'max_threshold', type: :float
+
+    def to_config
+      config = ""
+      config += [DM_SECTION, DM_ELEMENTS['enabled'], get_data('enabled') ? 1 : 0].pack(CONFIG_ITEM_TEMPLATE_PREFIX + DM_ELEMENTS_TEMPLATES['enabled'])
+      config += [DM_SECTION, DM_ELEMENTS['min_threshold'], get_data('min_threshold')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + DM_ELEMENTS_TEMPLATES['min_threshold'])
+      config += [DM_SECTION, DM_ELEMENTS['max_threshold'], get_data('max_threshold')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + DM_ELEMENTS_TEMPLATES['max_threshold'])
+      config += super.to_s
+      config
+    end
+  end
+end
+
+./preprocessor/sections/root.rb:
+
+require_relative 'base'
+require_relative 'forces'
+require_relative 'scene'
+require_relative 'spawn'
+require_relative 'time'
+require_relative 'fov'
+require_relative 'density_map'
+
+module Sections
+  class Root < Base
+    def initialize(root_str)
+      super(nil, root_str)
+    end
+
+    field name: 'scene', type: :descendant, klass: 'Scene'
+    field name: 'time', type: :descendant, klass: 'Time'
+    field name: 'spawn', type: :descendant, klass: 'Spawn'
+    field name: 'forces', type: :descendant, klass: 'Forces'
+    field name: 'fov', type: :descendant, klass: 'Fov'
+    field name: 'density_map', type: :descendant, klass: 'DensityMap'
+
+    def get_ref_value(value)
+      value = value.sub('ref:', '')
+      path = value.split(?.)
+      value = path.inject(data) do |res, key|
+        next unless res
+        res = if key.start_with?(?[) && key.end_with?(?])
+          res.find{ |(ar_el_type, _ar_el_value)| ar_el_type == key[1...-1] }.last
+        else
+          res[key]
+        end
+        res = res.data if Base === res
+        res
+      end
+      value
+    end
+  end
+end
+
+./preprocessor/sections/base.rb:
+
+module Sections
+  class Base
+    attr_reader :parent, :data
+
+    CONFIG_ITEM_TEMPLATE_PREFIX = "CS>"
+
+    def self.field(name:, type: nil, klass: nil, parser: nil, default: nil,
+                   current_section: nil, element: nil, context_defaults: {})
+      @fields ||= {}
+      @fields[name] = {name: name, type: type, klass: klass, parser: parser, default: default,
+                       current_section: current_section, element: element,
+                       context_defaults: context_defaults}
+      define_method name do |val = nil, &blc|
+        field = self.class.fields[name]
+        data[name] = get_value(field, val, &blc)
+      end
+    end
+
+    def self.fields
+      @fields
+    end
+
+    def fields
+      self.class.fields
+    end
+
+    def initialize(parent, str = nil, &blc)
+      @parent = parent
+      @data = {}
+      if str
+        instance_eval(str)
+      elsif blc
+        instance_eval(&blc)
+      else
+        raise ArgumentError, 'No string or block to evaluate provided'
+      end
+    end
+
+    def get_data(key)
+      return data[key] if data[key]
+      field = fields[key]
+      data[key] = get_value(field, nil) if field
+    end
+
+    def get_value(field, value, &blc)
+      value ||= field[:default]
+      value = get_ref_value(value) if String === value && value.start_with?('ref:')
+      value = case field[:type]
+              when :int then value.to_i
+              when :float then value.to_f
+              when :string then value.to_s
+              when :bool then !!value
+              when :descendant
+                klass = field[:klass].split('::').inject(Sections) do |res, kl|
+                  raise 'Requested descendant class not found!' unless res
+                  res.const_get(kl)
+                end
+                klass.new(self, &blc)
+              when :distribution
+                ::Utils::Distribution.new(self, field[:context_defaults],
+                                          field[:current_section], field[:element],
+                                          &blc)
+              when :custom
+                case field[:parser]
+                when Symbol then self.send(field[:parser], value, &blc)
+                when Proc then field[:parser].(value, &blc)
+                end
+              end
+      value
+    end
+
+    def get_ref_value(value)
+      parent.get_ref_value(value)
+    end
+
+    def to_config
+      descendants_to_config
+    end
+
+    private
+
+      def descendants_to_config
+        fields.select{ |_field_name, field| %i[descendant distribution].include? field[:type] }.inject('') do |res, (_field_name, field)|
+          descendant = data[field[:name]]
+          res + descendant.to_config
+        end
+      end
+  end
+end
+
+require_relative '../utils/distribution'

@@ -130,6 +130,11 @@
     \fancyhf{}
     \rfoot{\thepage}}
 
+\makeatletter
+\renewcommand{\@seccntformat}[1]{%
+  \bfseries \csname the#1\endcsname\ }
+\makeatletter
+
 
 % Зачем: Задает стиль заголовков раздела жирным шрифтом, прописными буквами, без точки в конце
 % Почему: Пункты 2.1.1, 2.2.5, 2.2.6 и ПРИЛОЖЕНИЕ Л Требований по оформлению пояснительной записки.
@@ -151,7 +156,7 @@
     {\fivecharsapprox}%
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\normalsize\bfseries}}
+    {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
 \makeatother
 
 
@@ -163,7 +168,7 @@
     {\fivecharsapprox}%
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\normalsize\bfseries}}
+    {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
 \makeatother
 
 % Зачем: для оформления введения и заключения, они должны быть выровнены по центру.
@@ -175,6 +180,17 @@
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
     {\centering\hyphenpenalty=10000\normalfont\large\bfseries\MakeUppercase}%
+    }
+\makeatother
+
+% Для приложений
+\makeatletter
+\newcommand\sectionappendix{%
+  \clearpage\@startsection {section}{1}%
+    {\z@}%
+    {-1em \@plus -1ex \@minus -.2ex}%
+    {1em \@plus .2ex}%
+    {\centering\hyphenpenalty=10000\normalfont\large\bfseries}%
     }
 \makeatother
 
