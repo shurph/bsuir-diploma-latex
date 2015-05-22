@@ -24,7 +24,7 @@
 Файл сценария симуляции использует предметно"=ориентированный язык.
 Пример сценария симуляции представлен в листинге~\ref{sec:manual:scenario_dsl_listing}.
 
-\lstinputlisting[language=Ruby,caption={Пример сценария симуляции}, label=sec:manual:scenario_dsl_listing, texcl=true]{sim_params_example.rb}
+\lstinputlisting[language=Ruby,basicstyle=\small,caption={Пример сценария симуляции}, label=sec:manual:scenario_dsl_listing, texcl=true]{sim_params_example.rb}
 
 Все поля в данном языке объединены в секции.
 Каждое поле имеет тип. Особым типом является тип <<распределение>>.
@@ -70,7 +70,7 @@
 
 Пример схемы сооружения представлен в листинге~\ref{sec:manual:input:building_scheme:svg_listing}.
 
-\lstinputlisting[language=XML,caption={Пример схемы сооружения}, label=sec:manual:input:building_scheme:svg_listing]{scene.svg}
+\lstinputlisting[language=XML,basicstyle=\small,caption={Пример схемы сооружения}, label=sec:manual:input:building_scheme:svg_listing]{scene.svg}
 
 В файле допускается использование любых элементов SVG, однако для симуляции будут иметь значение только те элементы, которым проставлен атрибут x-csim-class.
 Атрибут x-csim-class отвечает за тип данного элемента.  Возможные значения данного атрибута:
@@ -98,6 +98,15 @@
 cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- \\ core/target/release/core \-|\- animator/animator animator/resources/person\_1.svg 1.0,
 где \$PATH\_TO\_SCENARIO "--- путь к файлу со сценарием симуляции.
 
+Снимок экрана модуля отображения результатов представлен на рисунке~\ref{sec:manual:launch:scheenshot}.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[scale=0.6]{screenshot}
+  \caption{Снимок экрана модуля отображения результатов}
+  \label{sec:manual:launch:scheenshot}
+\end{figure}
+
 Для запуска в режиме воспроизведения ранее записанного файла необходимо сначало сгенерировать файл командой
 cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- core/target/release/core \->\- \$FILE\_WITH\_SIM\_RESULTS,
 а затем запускать модуль отображения результатов командой \\
@@ -109,4 +118,8 @@ cat \$FILE\_WITH\_SIM\_RESULTS \-|\- animator/animator \\ animator/resources/per
 
 Пример результата работы ПС представлен на рисунке~\ref{sec:manual:launch:result_pic}.
 
-<< Пример результата работы. Плакат >>
+\begin{figure}[ht]
+  \includegraphics[width=\linewidth]{output_example}
+  \caption{Пример результата работы ПС}
+  \label{sec:manual:launch:result_pic}
+\end{figure}
