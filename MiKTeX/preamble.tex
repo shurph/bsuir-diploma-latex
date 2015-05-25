@@ -489,7 +489,8 @@
       \@mkboth{\MakeUppercase\refname}{\MakeUppercase\refname}%
       \list{\@biblabel{\@arabic\c@enumiv}}%
            {\settowidth\labelwidth{\@biblabel{#1}}%
-            \setlength{\itemindent}{\dimexpr\labelwidth+\labelsep+1em}
+            \setlength{\itemindent}{\dimexpr\labelwidth+\fivecharsapprox}
+            \setlength{\itemsep}{-1ex}
             \leftmargin\z@
             \@openbib@code
             \usecounter{enumiv}%
