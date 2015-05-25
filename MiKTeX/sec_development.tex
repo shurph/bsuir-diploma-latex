@@ -39,9 +39,14 @@
 Благодаря гибкости языка Ruby и его широких возможностей в метапрограммировании,
 сценарий симуляции выполнен в виде предметно"=ориентированного языка (DSL "--- Domain Specific Language).
 
-Пример сценария симуляции представлен в листинге~\ref{sec:development:preprocessor:scenario_dsl_listing}.
+Пример сценария симуляции представлен на рисунке~\ref{sec:development:preprocessor:scenario_dsl_listing}.
 
-\lstinputlisting[language=Ruby,basicstyle=\small,caption={Пример сценария симуляции}, label=sec:development:preprocessor:scenario_dsl_listing, texcl=true]{sim_params_example.rb}
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=\dimexpr\linewidth-4.5em\relax]{sim_params_example}
+  \caption{Пример сценария симуляции}
+  \label{sec:development:preprocessor:scenario_dsl_listing}
+\end{figure}
 
 В сценарии симуляции указывается множество различных параметров симуляции.
 Более подробно данный язык и каждый его параметр будут рассмотрены в разделе~\ref{sec:manual:input:scenario}.
@@ -89,9 +94,14 @@ SVG~\cite{svg_home} "--- распространенный формат вект�
   \item легкость разбора SVG файлов на компоненты.
 \end{itemize}
 
-Пример схемы сооружения представлен в листинге~\ref{sec:development:preprocessor:svg_scheme_listing}.
+Пример схемы сооружения представлен на рисунке~\ref{sec:development:preprocessor:svg_scheme_listing}.
 
-\lstinputlisting[language=XML,basicstyle=\small,caption={Пример схемы сооружения}, label=sec:development:preprocessor:svg_scheme_listing]{scene.svg}
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=\dimexpr\linewidth-4.2em\relax]{scene_example}
+  \caption{Пример схемы сооружения}
+  \label{sec:development:preprocessor:svg_scheme_listing}
+\end{figure}
 
 В реализованном ПС поддерживаются два основных элемента SVG "--- line и rect.
 При этом введены следующие дополнительные атрибуты:
@@ -141,7 +151,6 @@ SVG~\cite{svg_home} "--- распространенный формат вект�
 В случае равномерного два числа с плавающей точкой означают границы <<от>> и <<до>> распределения,
 а в случае нормального "--- среднее значение и среднеквадратичное отклонение соответственно.
 
-\newpage
 \begin{longtable}[ht]{| >{\centering}m{0.25\textwidth}
                       | >{\centering}m{0.25\textwidth}
                       | >{\centering\arraybackslash}m{0.40\textwidth}|}

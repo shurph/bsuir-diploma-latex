@@ -22,9 +22,14 @@
 \label{sec:manual:input:scenario}
 
 Файл сценария симуляции использует предметно"=ориентированный язык.
-Пример сценария симуляции представлен в листинге~\ref{sec:manual:scenario_dsl_listing}.
+Пример сценария симуляции представлен на рисунке~\ref{sec:manual:scenario_dsl_listing}.
 
-\lstinputlisting[language=Ruby,basicstyle=\small,caption={Пример сценария симуляции}, label=sec:manual:scenario_dsl_listing, texcl=true]{sim_params_example.rb}
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=\dimexpr\linewidth-4.5em\relax]{sim_params_example}
+  \caption{Пример сценария симуляции}
+  \label{sec:manual:scenario_dsl_listing}
+\end{figure}
 
 Все поля в данном языке объединены в секции.
 Каждое поле имеет тип. Особым типом является тип <<распределение>>.
@@ -68,9 +73,14 @@
 Файл схемы сооружения основан на формате векторной графики SVG.
 В реализованном ПС поддерживаются два основных элемента SVG "--- line и rect.
 
-Пример схемы сооружения представлен в листинге~\ref{sec:manual:input:building_scheme:svg_listing}.
+Пример схемы сооружения представлен на рисунке~\ref{sec:manual:input:building_scheme:svg_listing}.
 
-\lstinputlisting[language=XML,basicstyle=\small,caption={Пример схемы сооружения}, label=sec:manual:input:building_scheme:svg_listing]{scene.svg}
+\begin{figure}[!ht]
+  \centering
+  \includegraphics[width=\dimexpr\linewidth-4.2em\relax]{scene_example}
+  \caption{Пример схемы сооружения}
+  \label{sec:manual:input:building_scheme:svg_listing}
+\end{figure}
 
 В файле допускается использование любых элементов SVG, однако для симуляции будут иметь значение только те элементы, которым проставлен атрибут x-csim-class.
 Атрибут x-csim-class отвечает за тип данного элемента.  Возможные значения данного атрибута:
