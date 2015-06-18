@@ -9,6 +9,7 @@ PDFLATEX = pdflatex
 DIPLOMA_REPORT_PDF = diploma_report
 PRACTICE_REPORT_PDF = practice_report
 COURSE_REPORT_PDF = course_report
+COMPETITION_PDF = competition
 TITLE_PDF = diploma_title_only
 TASK_PDF = diploma_task_only
 ECON_PDF = sec_econ_only
@@ -47,6 +48,12 @@ $(COURSE_REPORT_PDF).pdf: *.tex
 	$(PDFLATEX) $(COURSE_REPORT_PDF)
 	$(PDFLATEX) $(COURSE_REPORT_PDF)
 	cp $(COURSE_REPORT_PDF).pdf ../example_course_project.pdf
+
+$(COMPETITION_PDF).pdf: *.tex
+	$(PDFLATEX) $(COMPETITION_PDF)
+	$(BIBTEX) $(COMPETITION_PDF).aux
+	$(PDFLATEX) $(COMPETITION_PDF)
+	$(PDFLATEX) $(COMPETITION_PDF)
 
 $(TITLE_PDF).pdf: *.tex
 	$(PDFLATEX) $(TITLE_PDF)

@@ -22,14 +22,7 @@
 \label{sec:manual:input:scenario}
 
 Файл сценария симуляции использует предметно"=ориентированный язык.
-Пример сценария симуляции представлен на рисунке~\ref{sec:manual:scenario_dsl_listing}.
-
-\begin{figure}[ht!]
-  \centering
-  \includegraphics[width=\dimexpr\linewidth-4.5em\relax]{sim_params_example}
-  \caption{Пример сценария симуляции}
-  \label{sec:manual:scenario_dsl_listing}
-\end{figure}
+Пример сценария симуляции был представлен в разделе <<Проектирование программного средства>> на рисунке~\ref{sec:development:preprocessor:scenario_dsl_listing}.
 
 Все поля в данном языке объединены в секции.
 Каждое поле имеет тип. Особым типом является тип <<распределение>>.
@@ -73,14 +66,7 @@
 Файл схемы сооружения основан на формате векторной графики SVG.
 В реализованном ПС поддерживаются два основных элемента SVG "--- line и rect.
 
-Пример схемы сооружения представлен на рисунке~\ref{sec:manual:input:building_scheme:svg_listing}.
-
-\begin{figure}[!ht]
-  \centering
-  \includegraphics[width=\dimexpr\linewidth-4.2em\relax]{scene_example}
-  \caption{Пример схемы сооружения}
-  \label{sec:manual:input:building_scheme:svg_listing}
-\end{figure}
+Пример схемы сооружения был представлен в разделе <<Проектирование программного средства>> на рисунке~\ref{sec:development:preprocessor:svg_scheme_listing}.
 
 В файле допускается использование любых элементов SVG, однако для симуляции будут иметь значение только те элементы, которым проставлен атрибут x-csim-class.
 Атрибут x-csim-class отвечает за тип данного элемента.  Возможные значения данного атрибута:
@@ -104,8 +90,8 @@
 Поддерживается запуск в двух режимах: в режиме реального времени и в режиме воспроизведения записанного ранее файла результатов симуляции.
 В обоих случаях используются такие концепции операционной системы на основе GNU/Linux, как пайпы (каналы) и перенаправление стандартных потоков ввода и вывода.
 
-Для запуска в режиме реального времени нужно выполнить следующую команду:
-cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- \\ core/target/release/core \-|\- animator/animator animator/resources/person\_1.svg 1.0,
+Для запуска в режиме реального времени нужно выполнить следующую команду: \\
+cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- core/target/release/core \-|\- animator/animator \\ animator/resources/person\_1.svg 1.0,
 где \$PATH\_TO\_SCENARIO "--- путь к файлу со сценарием симуляции.
 
 Снимок экрана модуля отображения результатов представлен на рисунке~\ref{sec:manual:launch:scheenshot}.
@@ -117,10 +103,10 @@ cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- \\ core/target/release/
   \label{sec:manual:launch:scheenshot}
 \end{figure}
 
-Для запуска в режиме воспроизведения ранее записанного файла необходимо сначало сгенерировать файл командой
-cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- core/target/release/core \->\- \$FILE\_WITH\_SIM\_RESULTS,
+Для запуска в режиме воспроизведения ранее записанного файла необходимо сначало сгенерировать файл командой \\
+cat \$PATH\_TO\_SCENARIO \-|\- preprocessor/run.rb \-|\- core/target/release/core \->\- \\ \$FILE\_WITH\_SIM\_RESULTS,
 а затем запускать модуль отображения результатов командой \\
-cat \$FILE\_WITH\_SIM\_RESULTS \-|\- animator/animator \\ animator/resources/person\_1.svg 1.0.
+cat \$FILE\_WITH\_SIM\_RESULTS \-|\- animator/animator animator/resources/person\_1.svg 1.0.
 
 Также следует упомянуть возможность модуля отображения результатов использовать любую картинку в формате SVG в качестве текстуры пешехода.
 Первым аргументом при запуске модуля указывается файл в формате SVG с картинкой пешехода (направление движения "--- вверх), а вторым "--- масштаб картинки в миллиметрах на пиксель.
