@@ -48,11 +48,11 @@
 
 % Зачем: Настраивает межстрочный интервал, для размещения 40 +/- 3 строки текста на странице.
 % Почему: Пункт 2.1.1 Требований по оформлению пояснительной записки.
-\usepackage[nodisplayskipstretch]{setspace} 
+\usepackage[nodisplayskipstretch]{setspace}
 \setstretch{1.1}
 %\onehalfspacing
 
-% Зачем: Выбор шрифта по-умолчанию. 
+% Зачем: Выбор шрифта по-умолчанию.
 % Почему: Пункт 2.1.1 Требований по оформлению пояснительной записки.
 % Примечание: В требованиях не указан, какой именно шрифт использовать. По традиции используем TNR.
 \renewcommand{\rmdefault}{ftm} % Times New Roman
@@ -71,7 +71,7 @@
 
 % Зачем: Добавляет скобку 1) к номеру сноски
 % Почему: Пункты 2.9.2 и 2.9.1 Требований по оформлению пояснительной записки.
-\makeatletter 
+\makeatletter
 \def\@makefnmark{\hbox{\@textsuperscript{\normalfont\@thefnmark)}}}
 \makeatother
 
@@ -118,7 +118,7 @@
 \fancyfoot[R]{\thepage} % установка верхнего колонтитула
 \renewcommand{\footrulewidth}{0pt} % убрать разделительную линию внизу страницы
 \renewcommand{\headrulewidth}{0pt} % убрать разделительную линию вверху страницы
-\fancypagestyle{plain}{ 
+\fancypagestyle{plain}{
     \fancyhf{}
     \rfoot{\thepage}}
 
@@ -240,13 +240,13 @@
     {
     %%% Следующие строки определяют специфические требования разных редакций стандартов. Раскоменнтируйте нужные 2 строки
     %% стандартный абзац, СТП-01 2010
-    %\par 
+    %\par
     %\tabularx{\textwidth-\fivecharsapprox}{@{}ll@{ --- } X }
     %% без отступа, СТП-01 2013
-    \noindent 
+    \noindent
     \tabularx{\textwidth}{@{}ll@{ --- } X }
     }
-    { 
+    {
     \\[\parsep]
     \endtabularx
     }
@@ -256,7 +256,7 @@
 \usepackage{amsmath}
 
 
-% Зачем: Поддержка ажурного и готического шрифтов 
+% Зачем: Поддержка ажурного и готического шрифтов
 \usepackage{amsfonts}
 
 
@@ -286,10 +286,19 @@
 \setlist{nolistsep}
 
 
-% Зачем: Устанавливает символ начала именованного перечисления
-% Почему: Пункт 2.3.8 Требований по оформлению пояснительной записки.
-\renewcommand{\labelenumi}{\asbuk{enumi})}
-\renewcommand{\labelenumii}{\arabic{enumii})}
+% % Зачем: Устанавливает символ начала именованного перечисления
+% % Почему: Пункт 2.3.8 Требований по оформлению пояснительной записки.
+% \renewcommand{\labelenumi}{\asbuk{enumi})}
+% \renewcommand{\labelenumii}{\arabic{enumii})}
+
+\renewcommand{\theenumi}{\arabic{enumi}}
+
+\renewcommand{\theenumii}{\arabic{enumii}}
+
+\renewcommand\labelenumi{\theenumi}
+
+\renewcommand\labelenumii{\theenumii}
+
 
 % Зачем: Устанавливает отступ от границы документа до символа списка, чтобы этот отступ равнялся отступу параграфа
 % Почему: Пункт 2.3.5 Требований по оформлению пояснительной записки.
@@ -354,7 +363,7 @@
 \renewcommand{\lstlistingname}{Листинг}
 
 \lstdefinelanguage{FSharp}
-    {morekeywords={abstract,and,as,assert,base,begin,class,default,delegate,do,done,downcast,downto,elif,else,end,exception,extern,false,finally,for,fun,function,global,if,in,inherit,inline,interface,internal,lazy,let,let!,match,member,module,mutable,namespace,new,not,null,of,open,or,override,private,public,rec,return,return!,select,static,struct,then,to,true,try,type,upcast,use,use!,val,void,when,while,with,yield,yield!,asr,land,lor,lsl,lsr,lxor,mod,sig,atomic,break,checked,component,const,constraint,constructor,continue,eager,event,external,fixed,functor,include,method,mixin,object,parallel,process,protected,pure,sealed,tailcall,trait,virtual,volatile},
+    {morekeywords={abstract,and,as,assert,base,begin,class,default,delegate,do,done,downcast,downto,elif,else,end,exception,extern,false,finally,for,fun,function,global,if,in,inherit,inline,interface,internal,lazy,let,let!,match,member,module,mutable,namespace,new,not,null,of,open,or,override,private,public,rec,return,return!,select,static,struct,then,to,true,try,type,case,upcast,use,use!,val,void,when,while,with,yield,yield!,asr,land,lor,lsl,lsr,lxor,mod,sig,atomic,break,checked,component,const,constraint,constructor,continue,eager,event,external,fixed,functor,include,method,mixin,object,parallel,process,protected,pure,sealed,tailcall,trait,virtual,volatile},
     keywordstyle=\bfseries\color{bluekeywords},
     sensitive=false,
     morecomment=[l][\color{greencomments}]{///},
@@ -378,6 +387,16 @@
   breaklines=true,
   columns=fullflexible,
   basicstyle=\footnotesize\ttfamily
+}
+
+\lstdefinestyle{json}{
+  showstringspaces    = false,
+  keywords            = {false,true},
+  alsoletter          = 0123456789.,
+  morestring          = [s]{"}{"},
+  basicstyle=\footnotesize\ttfamily,
+  breaklines=true,
+  columns=fullflexible
 }
 
 \lstdefinestyle{csharpstyle}{
@@ -410,7 +429,7 @@
 \newcounter{totreferences}
 \newcounter{totequation}
 
-\providecommand\totfig{} 
+\providecommand\totfig{}
 \providecommand\tottab{}
 \providecommand\totref{}
 \providecommand\toteq{}
