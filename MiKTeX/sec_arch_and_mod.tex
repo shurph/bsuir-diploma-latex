@@ -151,12 +151,12 @@
 \subsection{Классы Business Layer}
 \label{sub:arch_and_mod:probab_net}
 
-К классам Business Layer относятся классы, наследующие от класса EventEmittor, который находится в пространстве имен NodeJS.events.EventEmit"=tor. Основной ролью данных классов является формирования логики обработки всех декларированных объектов объектной модели во время жизненного цикла приложения в рамках асинхронной модели ввода\/вывода.
+К классам Business Layer относятся классы, наследующие от класса EventEmittor, который находится в пространстве имен NodeJS.events.EventEmit"=tor. Основной ролью данных классов является формирования логики обработки всех декларированных объектов объектной модели во время жизненного цикла приложения в рамках асинхронной модели ввода\/вывода. Все классы принадлежащие этому слою являются реализацией интерфейса IBusinessSecuri"=tyData.
 
-\subsubsection{Класс ObserverServer }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:observer}
 
-является базовым абстрактным классом для классов бизнес логики и наследует свойства и методы абстрактного класса EventEmittor. Класс не содержит дополнительных атрибутов и модификаторов доступа.
+Класс ObserverServer является базовым абстрактным классом для классов бизнес логики и наследует свойства и методы абстрактного класса EventEmittor. Класс не содержит дополнительных атрибутов и модификаторов доступа.
 
 Поля:
 \begin{itemize}
@@ -172,10 +172,10 @@
   \item boolean \_hasAdminPermission() – метод, определяющий наличие прав на администрирование пользователей и групп. Метод используется для выполнения запросов к базе данных, предотвращая несанкционированные попытки получить пользовательские данные посредством не авторизованного доступа.
 \end{itemize}
 
-\subsubsection{Класс Westley }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:westley}
 
-представляет собой класс, реализующий функционал редактора хранилища и менеджер истории его изменений. Является реализацией интерфейса IWestley.
+Класс Westley представляет собой класс, реализующий функционал редактора хранилища и менеджер истории его изменений. Является реализацией интерфейса IWestley.
 
 Поля:
 \begin{itemize}
@@ -194,10 +194,10 @@
   \item Array<IStorageHistory> getHistory() – метод возвращает контейнер истории запросов к хранилищу.
 \end{itemize}
 
-\subsubsection{Класс Archive }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:archive}
 
-управляет временем существования компоновкой и обработкой объектов ManagedEntry и ManagedGroup. Данный класс может иметь только один экземпляр для конкретного пользователя.
+Класс Archive управляет временем существования компоновкой и обработкой объектов ManagedEntry и ManagedGroup. Данный класс может иметь только один экземпляр для конкретного пользователя.
 
 Поля:
 \begin{itemize}
@@ -222,10 +222,10 @@
   \item Achive createWithDefaults() – метод, возвращающий экземпляр класса Archive c параметрами по умолчанию.
 \end{itemize}
 
-\subsubsection{Класс InigoCommand }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:inigoCommand}
 
-представляет собой класс для обработки и выполнения команд типа Command, наследующий от статического класса REPL.
+Класс InigoCommand представляет собой класс для обработки и выполнения команд типа Command, наследующий от статического класса REPL.
 
 Поля:
 \begin{itemize}
@@ -244,10 +244,10 @@
   \item InigoCommand create(string cmd) – статический метод, возвращающий один и только один экземпляр класса InigoCommand для единственной команды по переданному индексу.
 \end{itemize}
 
-\subsubsection{Класс ManagedGroup }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:managedgroup}
 
-представляет собой класс для управления группами записей пользователя, наследующий от стандартного класса Stream. Определяет порядок привязки групп к хранилищам пользователя и подписку на события глобальной группы. Является реализацией интерфейса IManagedGroup.
+Класс ManagedGroup представляет собой класс для управления группами записей пользователя, наследующий от стандартного класса Stream. Определяет порядок привязки групп к хранилищам пользователя и подписку на события глобальной группы. Является реализацией интерфейса IManagedGroup.
 
 Поля:
 \begin{itemize}
@@ -279,10 +279,10 @@
   \item ManagedGroup createNew(IArchive archive, string parentID) – статический метод, позволяющий создать новый экземпляр класса ManagedGroup в хранилище archive с ведущей группой, обладающей parentID.
 \end{itemize}
 
-\subsubsection{Класс ManagedEntry }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:managedentry}
 
-используется для инициализации записи пользователя. Наследует свойства и методы абстрактного стандартного класса BaseManagementEntry. Имеет шаблон \_remoteObject для представления и инициализации функциональности на стороне клиента.
+Класс ManagedEntry используется для инициализации записи пользователя. Наследует свойства и методы абстрактного стандартного класса BaseManagementEntry. Имеет шаблон \_remoteObject для представления и инициализации функциональности на стороне клиента.
 
 Поля:
 \begin{itemize}
@@ -312,10 +312,10 @@
   \item ManagedEntry createNew(IArchive archive, string parentID) – статический метод, позволяющий создать новый экземпляр класса ManagedGroup в хранилище archive с ведущей группой, обладающей parentID.
 \end{itemize}
 
-\subsubsection{Класс Credentials }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:credentials}
 
-используется для формирования и проверки прав доступа к хранилищам. Наследует свойства и методы абстрактного стандартного класса BaseManagementEntry.
+Класс Credentials используется для формирования и проверки прав доступа к хранилищам. Наследует свойства и методы абстрактного стандартного класса BaseManagementEntry.
 
 Поля:
 \begin{itemize}
@@ -332,8 +332,10 @@
   \item Promise<IOcane> createFromSecureContent(IOcane content, password) – статический метод, возвращающий экземпляр класса Credentials, содержащий дешифрованные данные content.
 \end{itemize}
 
-\subsubsection{Класс Certificate }
+\subsubsection{}
 \label{sub:arch_and_mod:probab_net:certificate}
+
+Класс Certificate используется для формирования и проверки подписи сертификата. Инкапсулирует логику по оптимизации вычислений больших простых чисел. Наследует свойства и методы абстрактного стандартного класса BaseManagementEntry.
 
 Поля:
 \begin{itemize}
@@ -375,10 +377,10 @@
 
 К классам Business Layer относятся классы, наследующие от класса EventEmittor, который находится в пространстве имен NodeJS.events.Event"=Emittor. Основной ролью данных классов является формирования логики обработки всех декларированных объектов объектной модели во время жизненного цикла приложения в рамках асинхронной модели ввода\/вывода.
 
-\subsubsection{Класс AddGeneralDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_general_data_action}
 
-представляет собой класс, реализующий добавление новых записей в хранилище. Является реализацией интерфейса IDataAction.
+Класс AddGeneralDataAction представляет собой класс, реализующий добавление новых записей в хранилище. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -395,10 +397,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс AddMiscItemDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_misc_item}
 
-представляет собой класс, реализующий добавление новых записей в таблицу Miscellaneous хранилища. Является реализацией интерфейса IDataAction.
+Класс AddMiscItemDataAction представляет собой класс, реализующий добавление новых записей в таблицу Miscellaneous хранилища. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -416,10 +418,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс AddPartComponent }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_part_component}
 
-представляет собой класс, реализующий добавление новых записей типа KeyComponent. Является реализацией интерфейса IDataAction.
+Класс AddPartComponent представляет собой класс, реализующий добавление новых записей типа KeyComponent. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -437,10 +439,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс AddPaymentsRoutingDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_payments_routing}
 
-представляет собой класс, реализующий добавление новых записей типа PaymentsRouting. Является реализацией интерфейса IDataAction.
+Класс AddPaymentsRoutingDataAction представляет собой класс, реализующий добавление новых записей типа PaymentsRouting. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -458,10 +460,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс AddSubComponentDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_sub_component}
 
-представляет собой класс, реализующий добавление новых полей типа SubKeyComponent. При вызове данный класс строит объект JSON, в котором содержатся поля, необходимые для добавления новой записи. Является реализацией интерфейса IDataAction.
+Класс AddSubComponentDataAction представляет собой класс, реализующий добавление новых полей типа SubKeyComponent. При вызове данный класс строит объект JSON, в котором содержатся поля, необходимые для добавления новой записи. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -479,10 +481,10 @@
   \item Task<IDataResult<PartCostDetailFormModel, PartCostDetailFormModel>> Pro"=cessAsync(PartCostDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс AddSupplyItemDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:add_supply_item}
 
-представляет собой класс, реализующий добавление новых полей типа SupplyItemsKey. При вызове данный класс строит объект JSON, в котором содержатся поля, необходимые для добавления новой записи. Является реализацией интерфейса IDataAction.
+Класс AddSupplyItemDataAction представляет собой класс, реализующий добавление новых полей типа SupplyItemsKey. При вызове данный класс строит объект JSON, в котором содержатся поля, необходимые для добавления новой записи. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -500,10 +502,10 @@
   \item Task<IDataResult<PartCostDetailFormModel, PartCostDetailFormModel>> Pro"=cessAsync(PartCostDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс CalculateRightSummaryTotalstDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:calculate_right_summary_totalst}
 
-представляет собой класс, реализующий пересчет итогового значения прав на все группы, составляющих его хранилище. Является реализацией интерфейса IDataAc"=tion.
+Класс CalculateRightSummaryTotalstDataAction представляет собой класс, реализующий пересчет итогового значения прав на все группы, составляющих его хранилище. Является реализацией интерфейса IDataAc"=tion.
 
 Поля:
 \begin{itemize}
@@ -521,10 +523,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс CalculateProcessDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:calculate_process}
 
-представляет собой класс, реализующий учет действий пользователя, который был сконфигурирован пользователем. Является реализацией интерфейса IDataAction.
+Класс CalculateProcessDataAction представляет собой класс, реализующий учет действий пользователя, который был сконфигурирован пользователем. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -542,10 +544,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс CalculateAccessesUserDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:calculate_accesses_user}
 
-представляет собой класс, реализующий оценку прав пользователя на доступ к хранилищам. Является реализацией интерфейса IData"=Action.
+Класс CalculateAccessesUserDataAction представляет собой класс, реализующий оценку прав пользователя на доступ к хранилищам. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -563,10 +565,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий обработку данных и запись этих данных в таблицу. На вход поступает модель, которую необходимо обновить, на выходе получается результат добавления.
 \end{itemize}
 
-\subsubsection{Класс CheckProcessRoutingDeleteDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:check_process_routing_delete}
 
-представляет собой класс, который проверяет возможность удаления записей с хранилища. Если процесс удалить не возможно, метод класса вернет валидационную ошибку с текстом сообщения. Иначе вернется результат успешной проверки, и запись будет удалена из базы данных. Является реализацией интерфейса IData"=Action.
+Класс CheckProcessRoutingDeleteDataAction представляет собой класс, который проверяет возможность удаления записей с хранилища. Если процесс удалить не возможно, метод класса вернет валидационную ошибку с текстом сообщения. Иначе вернется результат успешной проверки, и запись будет удалена из базы данных. Является реализацией интерфейса IData"=Action.
 
 Поля:
 \begin{itemize}
@@ -584,10 +586,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий проверку данных на наличие связей в базе данных. На вход поступает модель, которую необходимо проверить, на выходе получается валидационный результат;
 \end{itemize}
 
-\subsubsection{Класс GetPartDetailDataAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:get_part_detail}
 
-представляет собой класс, который позволяет получить данные для модели на клиенте. Является реализацией интерфейса IDataAction.
+Класс GetPartDetailDataAction представляет собой класс, который позволяет получить данные для модели на клиенте. Является реализацией интерфейса IDataAction.
 
 Поля:
 \begin{itemize}
@@ -602,10 +604,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> Proces"=sAsync(PartDetailFormModel contextModel) – метод, выполняющий получающий данные для конкретной записи в базе данных. На вход поступает модель с ключами, на выходе получается модель типа Model.
 \end{itemize}
 
-\subsubsection{Класс ViewPartDetailFormAction }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:view_part_detail}
 
-представляет собой главный класс, так называемую точку входа в приложение. Данный класс является фабрикой по формированию и наполнению модели данных на серверной стороне приложения. В приложении так же используются однотипные классы для формирования объектов отображения. Подобные классы являются реализацией интерфейса IViewAction. Единственным отличием между Managed"=Group и ManagedEntry является тип возвращаемой модели. Для ManagedGroup это ManagedGroupModel, для ManagedEntry – ManagedEntryModel.
+Класс ViewPartDetailFormAction представляет собой главный класс, так называемую точку входа в приложение. Данный класс является фабрикой по формированию и наполнению модели данных на серверной стороне приложения. В приложении так же используются однотипные классы для формирования объектов отображения. Подобные классы являются реализацией интерфейса IViewAction. Единственным отличием между Managed"=Group и ManagedEntry является тип возвращаемой модели. Для ManagedGroup это ManagedGroupModel, для ManagedEntry – ManagedEntryModel.
 
 Поля:
 \begin{itemize}
@@ -621,10 +623,10 @@
   \item Task<IDataResult<PartDetailFormModel, PartDetailFormModel>> \foreignlanguage{english}{ProcessAsync(PartDetailFormModel contextModel)} – метод, получающий данные для конкретной записи в базе данных, формирующий из этих данных контекстную модель, инициирующий модель отображения и наполняющий модель отображения секциями. На вход поступает модель с ключами, на выходе получается модель отображения;
 \end{itemize}
 
-\subsubsection{Класс GetPartDetailFormDataHelper }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:view_part_detail}
 
-представляет собой класс, возвращающий данные хранилища по запросу пользователя.
+Класс GetPartDetailFormDataHelper представляет собой класс, возвращающий данные хранилища по запросу пользователя.
 
 Поля:
 \begin{itemize}
@@ -651,10 +653,10 @@
   \item Task SetEntrySummary(Model contextModel) – метод установки новой записи;
 \end{itemize}
 
-\subsubsection{Класс UpdatePartDetailFormDataHelper }
+\subsubsection{}
 \label{sub:arch_and_mod:data_layer:view_part_detail}
 
-представляет собой класс-сервис, обновляющий данные для страницы. Класс аналогичен предыдущему~\ref{sub:arch_and_mod:data_layer:view_part_detail}, за исключением того, что данные отправляются в базу, а не считываются.
+Класс UpdatePartDetailFormDataHelper представляет собой класс-сервис, обновляющий данные для страницы. Класс аналогичен предыдущему~\ref{sub:arch_and_mod:data_layer:view_part_detail}, за исключением того, что данные отправляются в базу, а не считываются.
 
 Поля:
 \begin{itemize}
@@ -682,10 +684,10 @@
 
 К классам и методам сервисов относятся классы и методы, имеющие атрибуты @Path и принимающих в качестве параметра объект типа Request. Основной ролью данных классов и методов является формирования ответов для пользователя с целью дальнейшего взаимодействия через сервисы посредством AJAX. Методы сервиса являются основными методами влияния на среду выполнения приложения.
 
-\subsubsection{Класс UserManagementRestResource }
+\subsubsection{}
 \label{sub:arch_and_mod:application_server_layer:user-management-rest-resource}
 
-используется для методов сервиса по управлению пользователями и группами. Добавлен атрибут @Path со значением /users. Является реализацией интерфейса IUserManage"=mentService.
+Класс UserManagementRestResource используется для методов сервиса по управлению пользователями и группами. Добавлен атрибут @Path со значением /users. Является реализацией интерфейса IUserManage"=mentService.
 
 Поля:
 \begin{itemize}
@@ -703,10 +705,10 @@
   \item Response getUserInfo(Request req) – метод сервиса, который возвращает данные о конкретном пользователе. Метод при успешном выполнении возвращает сериализованный объект User в формате JSON . Атрибут @Path имеет значение /addToGroup. Идентификатор пользователя передаются в качестве параметра HTTP запроса.
 \end{itemize}
 
-\subsubsection{Класс LabelManagementRestResource }
+\subsubsection{}
 \label{sub:arch_and_mod:application_server_layer:label_management_rest_resource}
 
-используется для методов сервиса по управлению записями, группами и хранилищами. Добавлен атрибут @Path со значением /labels. Является реализацией интерфейса ILabel"=ManagementService.
+Класс LabelManagementRestResource используется для методов сервиса по управлению записями, группами и хранилищами. Добавлен атрибут @Path со значением /labels. Является реализацией интерфейса ILabel"=ManagementService.
 
 Поля:
 \begin{itemize}
@@ -723,10 +725,10 @@
   \item Response removeIssueFromLabel(Request req) – метод сервиса, который удаляет запись из группы. Метод при успешном выполнении возвращает значение в формате JSON \lstinline!{"responseType": "Success", "message": ""}!. Атрибут @Path имеет значение /removeFromLabel. Идентификатор задачи и значение метки передаются в качестве параметров HTTP запрос.
 \end{itemize}
 
-\subsubsection{Класс BaseResponse }
+\subsubsection{}
 \label{sub:arch_and_mod:application_server_layer:base_response}
 
-используются для взаимодействия с функциональностью клиента, сервисов и серверных элементов функциональных действий. Класс BaseResponse является базовым классом для любой сущности типа Application Server Layer.
+Класс BaseResponse используются для взаимодействия с функциональностью клиента, сервисов и серверных элементов функциональных действий. Класс BaseResponse является базовым классом для любой сущности типа Application Server Layer.
 
 Поля:
 \begin{itemize}
@@ -742,10 +744,10 @@
   \item getResponseType() и setResponseType(ResponseType responseType) – методы для получения и установки типа ответа сервиса и функционального действия.
 \end{itemize}
 
-\subsubsection{Класс Quickmanagement }
+\subsubsection{}
 \label{sub:arch_and_mod:application_server_layer:quickmanagement}
 
-является классом связи с сервисом и определяет события подписки на запросы пользователя.
+Класс Quickmanagement является классом связи с сервисом и определяет события подписки на запросы пользователя.
 
 Методы:
 \begin{itemize}
