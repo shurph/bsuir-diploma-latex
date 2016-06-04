@@ -328,7 +328,7 @@
   \item Credentials(Model data) – конструктор класса, в качестве единственного параметра принимает экземпляр типа Model;
   \item Credentials setIdentity(string username, string password) – метод устанавливает username и password поля \_model текущего экземпляра. Возвращает экземпляр класса Credentials;
   \item Credentials setType (CredentialsType type) – метод присваивает полномочия типа type, переданного в качестве первого параметра, модели поля \_model;
-  \item Promise<IOcane> convertToSecureContent(string password) – метод преобразующий учетные данные в шифрованную строку посредством токена password. Возвращает Promise типа IOcane;
+  \item Promise<IOcane> convertToSecureContent(string password) – метод преобразующий учетные данные в шифрованную строку посредством токена pass"=word. Возвращает Promise типа IOcane;
   \item Promise<IOcane> createFromSecureContent(IOcane content, password) – статический метод, возвращающий экземпляр класса Credentials, содержащий дешифрованные данные content.
 \end{itemize}
 
@@ -687,7 +687,7 @@
 \subsubsection{}
 \label{sub:arch_and_mod:application_server_layer:user-management-rest-resource}
 
-Класс UserManagementRestResource используется для методов сервиса по управлению пользователями и группами. Добавлен атрибут @Path со значением /users. Является реализацией интерфейса IUserManage"=mentService.
+Класс UserManagementRestResource используется для методов сервиса по управлению пользователями и группами. Добавлен атрибут @Path со значением /users. Является реализацией интерфейса IUserManagementSer"=vice.
 
 Поля:
 \begin{itemize}
