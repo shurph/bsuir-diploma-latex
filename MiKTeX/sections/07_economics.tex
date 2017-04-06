@@ -1,0 +1,254 @@
+\input{sections/07_economics_macros}
+\input{sections/07_economics_calculations}
+
+\section{Технико-экономическое обоснование разработки и внедрения программного средства}
+\label{sec:economics}
+
+\subsection{Характеристика программного средства}
+\label{sec:economics:description}
+
+...
+
+Разработки проектов программных средств связана со значительными затратами ресурсов. В связи с этим создание и реализация каждого проекта программного обеспечения нуждается в соответствующем технико-экономическом обосновании~\cite{palitsyn}, которое и описывается в данном разделе.
+
+\subsection{Определение объема и трудоемкости ПС}
+\label{sec:economics:labouriousness}
+
+Целесообразность создания ПС требует проведения предварительной экономической оценки. Экономический эффект у разработчика ПС зависит от объема инвестиций в разработку проекта, цены на готовый продукт и количества проданных копий, и проявляется в виде роста чистой прибыли. 
+
+Оценка стоимости создания ПС со стороны разработчика предполагает составление сметы затрат, вычисление цены и прибыли от реализации разрабатываемого программного средства. 
+
+Исходные данные, которые будут использоваться при расчете сметы затрат, представлены в таблице~\ref{table:economics:labouriousness:initial_data}.
+
+\begin{table}[!ht]
+\caption{Исходные данные}
+\label{table:economics:labouriousness:initial_data}
+\centering
+	\begin{tabular}{{ 
+	|>{\raggedright}m{0.6\textwidth} | 
+	 >{\centering}m{0.17\textwidth} | 
+	 >{\centering\arraybackslash}m{0.15\textwidth}|}}
+
+  	\hline
+	{\begin{center} Наименование показателя \end{center}} & Условное обозначение &	Значение \\
+  
+	\hline
+	Категория сложности & & 3 \\
+
+	\hline
+	Дополнительный коэффициент сложности & $\sum\limits_{i=1}^{n} \text{К}_i$ & \additionalcomplexityfactor \\
+
+	\hline
+	Степень охвата функций стандартными модулями & $\stdmodules$ & \stdmodulesfactor \\
+
+	\hline
+	Коэффициент новизны & $\novelty$ & \noveltyfactor \\
+
+	\hline
+	Количество дней в году & $\daysinyear$ & \daysinyearfactor \\
+
+	\hline
+	Количество праздничных дней в году & $\holidays$ & \holidaysfactor \\
+
+	\hline
+	Количество выходных дней в году & $\weekends$ & \weekendsfactor \\
+
+	\hline
+	Количество дней отпуска & $\vacationdays$ & \vacationdaysfactor \\
+
+	\hline
+	Количество разработчиков & $\developersnumber$ & \developersnumberfactor \\
+
+	\hline
+	Тарифная ставка первого разряда, \byn & $\firstratetariffsymbol$ & \firstratetariffvalue \\
+
+	\hline
+	Среднемесячная норма рабочего времени, ч. & $\averagehourspermonthsymbol$ & \averagehourspermonthvalue \\
+
+	\hline
+	Продолжительность рабочей смены, ч. & $\hourspershiftsymbol$ & \hourspershiftvalue \\
+
+	\hline
+	Коэффициент премирования & $\bonusratesymbol$ & \bonusratevalue \\
+
+	\hline
+	Норматив дополнительной заработной платы & $\bonusratesymbol$ & \bonusratevalue \\
+
+	\hline
+	Норматив отчислений в ФСЗН & $\ssfratesymbol $ & \ssfratevalue \\
+
+	\hline
+	Норматив отчислений по обязательному страхованию & $\insuranceratesymbol $ & \insuranceratevalue \\
+
+	\hline
+	\end{tabular}
+\end{table}
+
+Перед определением сметы затрат на разработку программного средства необходимо определить его объём. Однако, на стадии ТЭО нет возможности рассчитать точные объемы функций, вместо этого с помощью применения действующих нормативов рассчитываются прогнозные оценки. В качестве метрики измерения объема программных средств используется строка их исходного кода (LOC -- lines of code). Данная метрика широко распространена, поскольку она непосредственно связана с конечным продуктом, может применяться от на всём протяжении проекта и, кроме того, может применяться для сопоставления размеров программного обеспечения. Далее под строкой исходного кода будем понимать количество исполняемых операторов.
+
+Расчет объема функций программного средства и общего объема приведен в таблице~\ref{table:economics:labouriousness:function_sizes}. 
+
+\begin{table}[!ht]
+\caption{Перечень и объём функций программного модуля}
+\label{table:economics:labouriousness:function_sizes}
+\centering
+	\begin{tabular}{{ | >{\centering}m{0.12\textwidth} | 
+	>{\raggedright}m{0.6\textwidth} | 
+	>{\centering\arraybackslash}m{0.2\textwidth}|}}
+
+  	\hline
+	\No{} функции & 
+	{\begin{center} Наименование (содержание) \end{center}} & 
+	Объём функции, LoC \\
+  
+	\hline 
+	101 & Организация ввода информации & \num{100} \\
+
+	\hline
+	102 & Контроль, предварительная обработка и ввод информации & \num{500} \\
+
+	\hline
+	109 & Организация ввода/вывода информации в интерактивном режиме & \num{190} \\
+
+	\hline
+	111 & Управление вводом/выводом & \num{2600} \\
+
+	\hline
+	204 & Обработка наборов и записей базы данных & \num{1900} \\
+
+	\hline
+	207 & Манипулирование данными & \num{8000} \\
+
+	\hline
+	208 & Организация поиска и поиск в БД & \num{7500} \\
+
+	\hline
+	304 & Обслуживание файлов & \num{500} \\
+
+	\hline
+	305 & Обработка файлов & \num{800} \\
+
+	\hline
+	309 & Формирование файла & \num{1000} \\
+
+	\hline
+	506 & Обработка ошибочных и сбойных ситуаций & \num{500} \\
+
+	\hline
+	507 & Обеспечение интерфейса между компонентами & \num{750} \\
+
+	\hline
+	601 & Отладка прикладных программ в интерактивном режиме & \num{4300} \\
+
+	\hline
+	707 & Графический вывод результатов & \num{300} \\
+
+	\hline
+	 & Общий объем & \totallocfactor \\
+
+	\hline
+	\end{tabular}
+\end{table}
+
+Исходя из определенной 3-ей категории сложности и общего объема ПС $\totalloc = \totallocfactor$, нормативная трудоемкость $\normativelaboriousness = \normativelaboriousnessfactor~\text{чел.д.}$~\cite[приложение 3]{palitsyn}. Перед определением общей трудоемкости разработки необходимо определить несколько коэффициентов.
+
+Коэффициент сложности, который учитывает дополнительные затраты труда, связанные с обеспечением интерактивного доступа и хранения, и поиска данных в сложных структурах~\cite[приложение 4, таблица П.4.2]{palitsyn}
+
+\begin{equation}
+	\complexity = 1 + \sum_{i=1}^{n} \text{К}_i = 1 + \num{0.06} + \num{0.07} = \complexityfactor,
+\end{equation}
+\begin{explanation}
+где & $ \text{К}_i $ & коэффициент, соответствующий степени повышения сложности за счет конкретной характеристики;\\
+& $ n $ & количество учитываемых характеристик.
+\end{explanation}
+
+Коэффициент $\stdmodules$, учитывающий степень использования при разработке стандартных модулей, для разрабатываемого приложения, в котором степень охвата планируется на уровне около 50\%, примем равным \num{0.7}~\cite[приложение 4, таблица П.4.5]{palitsyn}.
+
+Коэффициент новизны разрабатываемого программного средства $\novelty$ примем равным \noveltyfactor, так как разрабатываемом программное средство принадлежит определенному параметрическому ряду существующих программных средств~\cite[приложение 4, таблица П.4.4]{palitsyn}.
+
+Исходя из выбранных коэффициентов, общая трудоемкость разработки $ \totallaboriousness = \normativelaboriousness \cdot \complexity \cdot \stdmodules \cdot \novelty = \normativelaboriousnessfactor \cdot \complexityfactor \cdot \stdmodulesfactor \cdot \noveltyfactor = \totallaboriousnessfactor~\text{чел.д.}$
+
+Для расчета срока разработки проекта примем число разработчиков $\developersnumber = \developersnumberfactor$. Исходя из комментария к постановлению Министерства труда и социальной защиты Республики Беларусь от 05.10.16 №54 <<Об установлении
+расчетной нормы рабочего времени на 2017 год>>~\cite{labour_calendar}, эффективный фонд времени работы одного человека составит
+\begin{equation}
+	\effectivetimefund = \daysinyear - \holidays - \weekends - \vacationdays = \num{\daysInYear} - \num{\redLettersDaysInYear} - \num{\weekendDaysInYear} - \num{\vacationDaysInYear} = \num{\workingDaysInYear}~\text{д.},
+\end{equation}
+\begin{explanation}
+где & $ \text{Д}_\text{г} $ & количество дней в году;\\
+& $ \text{Д}_\text{п} $ & количество праздничных дней в году;\\
+& $ \text{Д}_\text{в} $ & количество выходных дней в году;\\
+& $ \text{Д}_\text{о} $ & количество дней отпуска.
+\end{explanation}
+
+Тогда срок разработки проекта
+
+\begin{equation}
+	\developmenttime = \frac{\totallaboriousness}{\developersnumber \cdot \effectivetimefund} = \frac{\totallaboriousnessfactor}{\developersnumberfactor \cdot \effectivetimefundfactor} = \developmenttimeyearsfactor~\text{г.} = \developmenttimefactor~\text{д.}
+\end{equation}
+
+\subsection{Расчет сметы затрат}
+\label{sec:economics:estimate}
+
+Основной статьей расходов на создание ПО является заработная плата разработчиков проекта. Информация об исполнителях перечислена в таблице~\ref{table:economics:estimate:employees}. Кроме того, в таблице приведены данные об их тарифных разрядах, приведены разрядные коэффициенты, а также по формулам~\ref{eq:economics:estimate:month_wage} и~\ref{eq:economics:estimate:hour_wage} рассчитаны месячный и часовой оклады.
+
+\begin{equation}
+\label{eq:economics:estimate:month_wage}
+	\text{T}_\text{м} = \text{T}_\text{м}^1 \cdot \text{T}_\text{к},
+\end{equation}
+\begin{equation}
+\label{eq:economics:estimate:hour_wage}
+	\text{T}_\text{ч} = \frac{\text{T}_\text{м}}{\text{Ф}_\text{р}},
+\end{equation}
+\begin{explanation}
+где & $ \text{T}_\text{м} $ & месячный оклад;\\
+	& $ \text{T}_\text{м}^1 $ & тарифная ставка 1-го разряда (положим ее равной \num{\firstratetariff} \byn);\\
+	& $ \text{T}_\text{к} $ & тарифный коэффициент;\\
+	& $ \text{T}_\text{ч} $ & часовой оклад;\\
+	& $ \text{Ф}_\text{р} $ & среднемесячная норма рабочего времени (в 2017 г. составляет \num{168.3} ч.~\cite{labour_calendar}).
+\end{explanation}
+
+\begin{table}[!ht]
+  \caption{Работники, занятые в проекте}
+  \label{table:economics:estimate:employees}
+  \begin{tabular}{| >{\raggedright}m{0.3\textwidth} 
+                  | >{\centering}m{0.09\textwidth} 
+                  | >{\centering}m{0.18\textwidth} 
+                  | >{\centering}m{0.15\textwidth} 
+                  | >{\centering\arraybackslash}m{0.15\textwidth}|}
+	\hline
+	{\begin{center}Исполнители\end{center}} & Разряд & Тарифный коэффициент & Месячный оклад, \byn & Часовой оклад, \byn \\
+
+	\hline
+	Руководитель проекта & 17 & \num{3.98} & \employeeamonthwage & \employeeahourwage \\
+
+	\hline
+	Ведущий инженер-программист & 15 & \num{3.48} & \employeebmonthwage & \employeebhourwage\\
+
+	\hline
+	Инженер-программист II категории & 11 & \num{2.65} & \employeecmonthwage & \employeechourwage\\
+	\hline
+  \end{tabular}
+\end{table}
+
+Тогда основная заработная плата исполнителей составит
+\begin{equation}
+\begin{align}
+	\basewagesymbol &= \sum_{i=1}^n \text{Т}_\text{чi} \cdot \text{Т}_\text{ч} \cdot \text{Ф}_\text{п} \cdot K = \\
+	&= (\employeeahourwage + \employeebhourwage + \employeechourwage) \cdot \hourspershiftvalue \cdot \developmenttimefactor \cdot \bonusratevalue = \basewagevalue~\text{\byn},
+\end{align}
+\end{equation}
+\begin{explanation}
+где & $ \text{Т}_\text{чi} $ & часовая тарифная ставка i-го исполнителя, \byn;\\
+	& $ \text{Т}_\text{ч} $ & количество часов работы в день;\\
+	& $ \text{Ф}_\text{п} $ & плановый фонд рабочего времени i-го исполнителя, д.;\\
+	& $ K $ & коэффициент премирования (принятый равным \bonusratevalue).
+\end{explanation}
+
+Дополнительная заработная плата включает выплаты, предусмотренные законодательство о труде: оплата отпусков, льготных часов, времени  выполнения  государственных обязанностей и других выплат, не связанных с основной деятельностью исполнителей, и определяется по нормативу, установленному в организации, в процентах к основной заработной плате.
+Приняв данный норматив $\additionalwageratesymbol = \additionalwageratevalue$, рассчитаем дополнительные выплаты
+
+\begin{equation}
+	\additionalwagesymbol = \frac{\basewagesymbol \cdot \additionalwageratesymbol}{100\%} = \frac{\basewagevalue \cdot \additionalwageratevalue}{100\%} = \additionalwagevalue
+\end{equation}
+
+Отчисления в фонд социальной защиты населения и в фонд обязательного страхования определяются в соответствии с действующим законодательством по нормативу в процентном отношении к фонду основной и дополнительной зарплат. 

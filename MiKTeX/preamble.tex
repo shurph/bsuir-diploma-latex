@@ -6,20 +6,17 @@
 % Зачем: Настройка Times New Roman.
 % Рекомендовано для Windows (нужен PSCyr, подробности см. в fonts_windows.tex)
 % раскомментировать, чтобы использовать:
-%\input{fonts_windows}% не забудьте закомментировать \input{fonts_linux}
+\input{fonts_windows}% не забудьте закомментировать \input{fonts_linux}
 
 % Рекомендовано для Linux (нужен scalable-cyrfonts-tex, подробности см. в fonts_linux.tex)
 % раскомментировать, чтобы использовать:
-\input{fonts_linux}% не забудьте закомментировать \input{fonts_windows}
+%\input{fonts_linux}% не забудьте закомментировать \input{fonts_windows}
 
 % Зачем: Установка кодировки исходных файлов.
 \usepackage[utf8]{inputenc}
 
 % Зачем: Делает результирующий PDF "searchable and copyable".
 \usepackage{cmap}
-
-% Зачем: Чтобы можно было использовать русские буквы в формулах, но в случае использования предупреждать об этом.
-\usepackage[warn]{mathtext}
 
 % Зачем: Учет особенностей различных языков.
 \usepackage[russian]{babel}
@@ -67,7 +64,6 @@
 % Примечание: в "Требованиях по оформлению пояснительной записки" не указано, как нужно делать, но в других БГУИРовских докуметах рекомендуется нумерация отдельная для каждой страницы
 \usepackage{perpage}
 \MakePerPage{footnote}
-
 
 % Зачем: Добавляет скобку 1) к номеру сноски
 % Почему: Пункты 2.9.2 и 2.9.1 Требований по оформлению пояснительной записки.
@@ -131,7 +127,7 @@
     {\fivecharsapprox}%
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\large\bfseries\MakeUppercase}}
+    {\raggedright\hyphenpenalty=10000\normalfont\bfseries\MakeUppercase}}
 \makeatother
 
 
@@ -166,7 +162,7 @@
     {\z@}%
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
-    {\centering\hyphenpenalty=10000\normalfont\large\bfseries\MakeUppercase}%
+    {\centering\hyphenpenalty=10000\normalfont\bfseries\MakeUppercase}%
     }
 \makeatother
 
@@ -184,7 +180,7 @@
 
 
 % Зачем: Директория в которой будет происходить поиск картинок
-\graphicspath{{figures/}}
+\graphicspath{{attachments/}}
 
 
 % Зачем: Добавление подписей к рисункам
@@ -194,10 +190,14 @@
 % Зачем: чтобы работала \No в новых латехах
 \DeclareRobustCommand{\No}{\ifmmode{\nfss@text{\textnumero}}\else\textnumero\fi}
 
-% Зачем: поворот ячеек таблиц на 90 градусов
+% зачем: sidewaysfigure для поворота рисунков
 \usepackage{rotating}
+% Зачем: поворот ячеек таблиц на 90 градусов
 \DeclareRobustCommand{\povernut}[1]{\begin{sideways}{#1}\end{sideways}}
 
+
+% Зачем: заставляем работать ссылки (\footnote) в таблицах
+\usepackage{tablefootnote}
 
 % Зачем: когда в формулах много кириллических символов команда \text{} занимает много места
 \DeclareRobustCommand{\x}[1]{\text{#1}}
@@ -206,12 +206,15 @@
 % Зачем: Задание подписей, разделителя и нумерации частей рисунков
 % Почему: Пункт 2.5.5 Требований по оформлению пояснительной записки.
 \DeclareCaptionLabelFormat{stbfigure}{Рисунок #2}
+\DeclareCaptionLabelFormat{stbsubfigure}{#2}
 \DeclareCaptionLabelFormat{stbtable}{Таблица #2}
 \DeclareCaptionLabelSeparator{stb}{~--~}
 \captionsetup{labelsep=stb}
-\captionsetup[figure]{labelformat=stbfigure,justification=centering}
-\captionsetup[table]{labelformat=stbtable,justification=raggedright}
+\captionsetup[subfigure]{labelformat=stbsubfigure,labelsep=stb}
+\captionsetup[figure]{labelformat=stbfigure,justification=centering,skip=15pt}
+\captionsetup[table]{labelformat=stbtable,justification=raggedright,format=hang,skip=0pt}
 \renewcommand{\thesubfigure}{\asbuk{subfigure}}
+
 
 % Зачем: Окружения для оформления формул
 % Почему: Пункт 2.4.7 требований по оформлению пояснительной записки и специфические требования различных кафедр
@@ -249,6 +252,7 @@
     { 
     \\[\parsep]
     \endtabularx
+    % \vspace{-6mm} % костыль, вдруг понадобится после "где"-области убрать пустую строку
     }
 
 
@@ -266,6 +270,10 @@
 
 % Зачем: Окружения «теорема», «лемма»
 \usepackage{amsthm}
+
+
+% Зачем: Чтобы можно было использовать русские буквы в формулах, но в случае использования предупреждать об этом.
+\usepackage[warn]{mathtext}
 
 
 % Зачем: Производить арифметические операции во время компиляции TeX файла
@@ -385,6 +393,21 @@
   frame=lr,
   rulecolor=\color{blue!80!black}}
 
+\lstdefinestyle{python}{
+   xleftmargin=0ex,
+   language=Python,
+   basicstyle=\footnotesize\ttfamily,
+   breaklines=true,
+   columns=fullflexible
+}
+
+\lstdefinestyle{sql}{
+   xleftmargin=0ex,
+   language=SQL,
+   basicstyle=\footnotesize\ttfamily,
+   breaklines=true,
+   columns=fullflexible
+}
 
 % Зачем: Нумерация листингов в пределах секции
 \AtBeginDocument{\numberwithin{lstlisting}{section}}
@@ -472,3 +495,9 @@
    \fi
 }
 
+% Зачем: изменение ориентации отдельных страниц
+% использование:
+% \begin{landscape}
+% ...
+% \end{landscape}
+% \usepackage{lscape}

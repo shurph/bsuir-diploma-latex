@@ -1,0 +1,172 @@
+\input{sections/07_economics_initial_data}
+
+\FPdebugtrue
+
+\FPeval{\totalProgramSizeCorrected}{\totalProgramSize}
+\newcommand{\totallocfactor}{\num{\totalProgramSizeCorrected}}
+
+\newcommand{\additionalcomplexityfactor}{\num{\additionalComplexity}}
+\FPeval{\complexityFactor}{clip(1 + \additionalComplexity)}
+\newcommand{\complexityfactor}{\num{\complexityFactor}}
+
+\newcommand{\stdmodulesfactor}{\num{\stdModuleUsageFactor}}
+\newcommand{\noveltyfactor}{\num{\noveltyFactor}}
+
+\FPeval{\adjustedManDaysExact}{clip( \normativeManDays * \complexityFactor * \stdModuleUsageFactor * \noveltyFactor )}
+\FPround{\adjustedManDays}{\adjustedManDaysExact}{0}
+\newcommand{\normativelaboriousnessfactor}{\num{\normativeManDays}}
+\newcommand{\totallaboriousnessfactor}{\num{\adjustedManDays}}
+
+
+\FPeval{\workingDaysInYear}{ clip( \daysInYear - \redLettersDaysInYear - \weekendDaysInYear - \vacationDaysInYear ) }
+\newcommand{\daysinyearfactor}{\num{\daysInYear}}
+\newcommand{\holidaysfactor}{\num{\redLettersDaysInYear}}
+\newcommand{\weekendsfactor}{\num{\weekendDaysInYear}}
+\newcommand{\vacationdaysfactor}{\num{\vacationDaysInYear}}
+\newcommand{\effectivetimefundfactor}{\num{\workingDaysInYear}}
+
+\FPeval{\requiredNumberOfProgrammers}{3}
+\newcommand{\developersnumberfactor}{\num{\requiredNumberOfProgrammers}}
+\FPeval{\developmentTimeYearsExact}{\adjustedManDays / (\requiredNumberOfProgrammers * \workingDaysInYear)}
+\FPround{\developmentTimeYears}{\developmentTimeYearsExact}{2}
+\newcommand{\developmenttimeyearsfactor}{\num{\developmentTimeYears}}
+\FPeval{\developmentTimeMonthsExact}{\developmentTimeYearsExact * 12}
+\FPround{\developmentTimeMonths}{\developmentTimeMonthsExact}{1}
+\newcommand{\developmenttimemonthsfactor}{\num{\developmentTimeMonths}}
+\FPeval{\developmentTimeDaysExact}{\developmentTimeYearsExact * \daysInYear}
+\FPround{\developmentTimeDays}{\developmentTimeDaysExact}{0}
+\newcommand{\developmenttimefactor}{\num{\developmentTimeDays}}
+
+
+\FPeval{\employeeAMonthExact}{\firstratetariff * 3.98}
+\FPeval{\employeeBMonthExact}{\firstratetariff * 3.48}
+\FPeval{\employeeCMonthExact}{\firstratetariff * 2.65}
+\FPeval{\employeeAHourExact}{\employeeAMonthExact / \averagehourspermonth}
+\FPeval{\employeeBHourExact}{\employeeBMonthExact / \averagehourspermonth}
+\FPeval{\employeeCHourExact}{\employeeCMonthExact / \averagehourspermonth}
+\FPround{\employeeAMonth}{\employeeAMonthExact}{2}
+\FPround{\employeeBMonth}{\employeeBMonthExact}{2}
+\FPround{\employeeCMonth}{\employeeCMonthExact}{2}
+\FPround{\employeeAHour}{\employeeAHourExact}{2}
+\FPround{\employeeBHour}{\employeeBHourExact}{2}
+\FPround{\employeeCHour}{\employeeCHourExact}{2}
+\newcommand{\employeeamonthwage}{\num{\employeeAMonth}}
+\newcommand{\employeebmonthwage}{\num{\employeeBMonth}}
+\newcommand{\employeecmonthwage}{\num{\employeeCMonth}}
+\newcommand{\employeeahourwage}{\num{\employeeAHour}}
+\newcommand{\employeebhourwage}{\num{\employeeBHour}}
+\newcommand{\employeechourwage}{\num{\employeeCHour}}
+
+\newcommand{\firstratetariffvalue}{\num{\firstratetariff}}
+\newcommand{\averagehourspermonthvalue}{\num{\averagehourspermonth}}
+\newcommand{\hourspershiftvalue}{\num{\hourspershift}}
+\newcommand{\bonusratevalue}{\num{\bonusrate}}
+
+\FPeval{\basewageExact}{(\employeeAHour + \employeeBHour + \employeeCHour) * \hourspershift * \developmentTimeDays * \bonusrate}
+\FPround{\basewage}{\basewageExact}{2}
+\newcommand{\basewagevalue}{\num{\basewage}}
+
+\newcommand{\additionalwageratevalue}{\num{\additionalwagerate}\%}
+\FPeval{\additionalwage}{round(\basewage * \additionalwagerate / 100, 2)}
+\newcommand{\additionalwagevalue}{\num{\additionalwage}~\byn}
+
+\FPeval{\ssfcharges}{round((\basewage + \additioanlwage) * \ssfrate / 100, 2)}
+\FPeval{\insurancecharges}{round((\basewage + \additioanlwage) * \insurancerate / 100, 2)}
+\newcommand{\ssfchargesvalue}{\num{\ssfcharges}~\byn}
+\newcommand{\ssfratevalue}{\num{\ssfrate}\%}
+\newcommand{\insurancechargesvalue}{\num{\insurancecharges}~\byn}
+\newcommand{\insuranceratevalue}{\num{\insurancerate}\%}
+
+
+% граница выполнения: дальше недоделано
+
+
+\FPeval{\employmentFstExact}{clip( \adjustedManDays / \requiredNumberOfProgrammers )}
+\FPtrunc{\employmentFst}{\employmentFstExact}{0}
+
+\FPeval{\employmentSnd}{clip(\adjustedManDays - \employmentFst)}
+
+
+\FPeval{\workingHoursInMonth}{160}
+\FPeval{\salaryPerHourFstExact}{clip( \tariffRateFirst * \tariffFactorFst / \workingHoursInMonth )}
+\FPeval{\salaryPerHourSndExact}{clip( \tariffRateFirst * \tariffFactorSnd / \workingHoursInMonth )}
+\FPround{\salaryPerHourFst}{\salaryPerHourFstExact}{0}
+\FPround{\salaryPerHourSnd}{\salaryPerHourSndExact}{0}
+
+\FPeval{\bonusRate}{1.5}
+\FPeval{\workingHoursInDay}{8}
+\FPeval{\totalSalaryExact}{clip( \workingHoursInDay * \bonusRate * ( \salaryPerHourFst * \employmentFst + \salaryPerHourSnd * \employmentSnd ) )}
+\FPround{\totalSalary}{\totalSalaryExact}{0}
+
+\FPeval{\additionalSalaryNormative}{20}
+
+\FPeval{\additionalSalaryExact}{clip( \totalSalary * \additionalSalaryNormative / 100 )}
+\FPround{\additionalSalary}{\additionalSalaryExact}{0}
+
+\FPeval{\socialNeedsNormative}{0.5}
+\FPeval{\socialProtectionNormative}{34}
+\FPeval{\socialProtectionFund}{ clip(\socialNeedsNormative + \socialProtectionNormative) }
+
+\FPeval{\socialProtectionCostExact}{clip( (\totalSalary + \additionalSalary) * \socialProtectionFund / 100 )}
+\FPround{\socialProtectionCost}{\socialProtectionCostExact}{0}
+
+\FPeval{\taxWorkProtNormative}{4}
+\FPeval{\taxWorkProtCostExact}{clip( (\totalSalary + \additionalSalary) * \taxWorkProtNormative / 100 )}
+\FPround{\taxWorkProtCost}{\taxWorkProtCostExact}{0}
+\FPeval{\taxWorkProtCost}{0} % это считать не нужно, зануляем чтобы не менять формулы
+
+\FPeval{\stuffNormative}{3}
+\FPeval{\stuffCostExact}{clip( \totalSalary * \stuffNormative / 100 )}
+\FPeval{\stuffCost}{\stuffCostExact}
+
+\FPeval{\timeToDebugCodeNormative}{15}
+\FPeval{\reducingTimeToDebugFactor}{0.3}
+\FPeval{\adjustedTimeToDebugCodeNormative}{ clip( \timeToDebugCodeNormative * \reducingTimeToDebugFactor ) }
+
+\FPeval{\oneHourMachineTimeCost}{5000}
+
+\FPeval{\machineTimeCostExact}{ clip( \oneHourMachineTimeCost * \totalProgramSizeCorrected / 100 * \adjustedTimeToDebugCodeNormative ) }
+\FPround{\machineTimeCost}{\machineTimeCostExact}{0}
+
+\FPeval{\businessTripNormative}{15}
+\FPeval{\businessTripCostExact}{ clip( \totalSalary * \businessTripNormative / 100 ) }
+\FPround{\businessTripCost}{\businessTripCostExact}{0}
+
+\FPeval{\otherCostNormative}{20}
+\FPeval{\otherCostExact}{clip( \totalSalary * \otherCostNormative / 100 )}
+\FPround{\otherCost}{\otherCostExact}{0}
+
+\FPeval{\overheadCostNormative}{100}
+\FPeval{\overallCostExact}{clip( \totalSalary * \overheadCostNormative / 100 )}
+\FPround{\overheadCost}{\overallCostExact}{0}
+
+\FPeval{\overallCost}{clip( \totalSalary + \additionalSalary + \socialProtectionCost + \taxWorkProtCost + \stuffCost + \machineTimeCost + \businessTripCost + \otherCost + \overheadCost ) }
+
+\FPeval{\supportNormative}{30}
+\FPeval{\softwareSupportCostExact}{clip( \overallCost * \supportNormative / 100 )}
+\FPround{\softwareSupportCost}{\softwareSupportCostExact}{0}
+
+
+\FPeval{\baseCost}{ clip( \overallCost + \softwareSupportCost ) }
+
+\FPeval{\profitability}{35}
+\FPeval{\incomeExact}{clip( \baseCost / 100 * \profitability )}
+\FPround{\income}{\incomeExact}{0}
+
+\FPeval{\estimatedPrice}{clip( \income + \baseCost )}
+
+\FPeval{\localRepubTaxNormative}{3.9}
+\FPeval{\localRepubTaxExact}{clip( \estimatedPrice * \localRepubTaxNormative / (100 - \localRepubTaxNormative) )}
+\FPround{\localRepubTax}{\localRepubTaxExact}{0}
+\FPeval{\localRepubTax}{0}
+
+\FPeval{\ndsNormative}{20}
+\FPeval{\ndsExact}{clip( (\estimatedPrice + \localRepubTax) / 100 * \ndsNormative )}
+\FPround{\nds}{\ndsExact}{0}
+
+
+\FPeval{\sellingPrice}{clip( \estimatedPrice + \localRepubTax + \nds )}
+
+\FPeval{\taxForIncome}{18}
+\FPeval{\incomeWithTaxes}{clip(\income * (1 - \taxForIncome / 100))}
+\FPround\incomeWithTaxes{\incomeWithTaxes}{0}

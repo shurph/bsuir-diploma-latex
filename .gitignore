@@ -3,6 +3,7 @@
 *.alg
 *.aux
 *.bbl
+*.bak
 *.blg
 *.dvi
 *.fdb_latexmk
@@ -34,9 +35,4 @@
 *.pdf
 *.gz*
 *~
-.vagrant/
-!example_diploma.pdf
-!example_practice.pdf
-!document_list.pdf
-
-!docs/*
+*.sublime-workspace
