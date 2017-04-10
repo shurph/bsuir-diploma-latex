@@ -102,6 +102,11 @@
 \renewcommand{\l@subsection}{\@dottedtocline{2}{1.7em}{2.0em}}
 \makeatother
 
+% Зачем: убираем переносы в содержании
+\makeatletter
+\renewcommand{\@tocrmarg}{\@pnumwidth plus1fil}
+\makeatother
+
 
 % Зачем: Работа с колонтитулами
 \usepackage{fancyhdr} % пакет для установки колонтитулов
@@ -252,7 +257,7 @@
     { 
     \\[\parsep]
     \endtabularx
-    % \vspace{-6mm} % костыль, вдруг понадобится после "где"-области убрать пустую строку
+    \vspace{-3mm} % костыль, вдруг понадобится после "где"-области убрать пустую строку
     }
 
 
