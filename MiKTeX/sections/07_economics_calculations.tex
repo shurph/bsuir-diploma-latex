@@ -1,7 +1,5 @@
 \input{sections/07_economics_initial_data}
 
-\FPdebugtrue
-
 \FPeval{\totalProgramSizeCorrected}{\totalProgramSize}
 \newcommand{\totallocfactor}{\num{\totalProgramSizeCorrected}}
 
@@ -72,8 +70,8 @@
 \FPeval{\additionalwage}{round(\basewage * \additionalwagerate / 100, 2)}
 \newcommand{\additionalwagevalue}{\num{\additionalwage}}
 
-\FPeval{\ssfcharges}{round((\basewage + \additioanlwage) * \ssfrate / 100, 2)}
-\FPeval{\insurancecharges}{round((\basewage + \additioanlwage) * \insurancerate / 100, 2)}
+\FPeval{\ssfcharges}{round((\basewage + \additionalwage) * \ssfrate / 100, 2)}
+\FPeval{\insurancecharges}{round((\basewage + \additionalwage) * \insurancerate / 100, 2)}
 \newcommand{\ssfchargesvalue}{\num{\ssfcharges}}
 \newcommand{\ssfratevalue}{\num{\ssfrate}\%}
 \newcommand{\insurancechargesvalue}{\num{\insurancecharges}}

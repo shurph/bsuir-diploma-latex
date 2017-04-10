@@ -119,7 +119,7 @@
 
 Перед определением сметы затрат на разработку программного средства необходимо определить его объём. Однако, на стадии ТЭО нет возможности рассчитать точные объемы функций, вместо этого с помощью применения действующих нормативов рассчитываются прогнозные оценки. 
 
-В качестве метрики измерения объема программных средств используется строка их исходного кода (LOC -- lines of code). Данная метрика широко распространена, поскольку она непосредственно связана с конечным продуктом, может применяться от на всём протяжении проекта и, кроме того, может применяться для сопоставления размеров программного обеспечения. Далее под строкой исходного кода будем понимать количество исполняемых операторов.
+В качестве метрики измерения объема программных средств используется строка их исходного кода (LOC -- lines of code). Данная метрика широко распространена, поскольку она непосредственно связана с конечным продуктом, может применяться на всём протяжении проекта и, кроме того, может использоваться для сопоставления размеров программного обеспечения. Далее под строкой исходного кода будем понимать количество исполняемых операторов.
 
 Расчет объема функций программного средства и общего объема приведен в таблице~\ref{table:economics:labouriousness:function_sizes}. 
 
@@ -271,10 +271,10 @@
 
 Тогда основная заработная плата исполнителей составит
 \begin{equation}
-\begin{align}
+\begin{aligned}
 	\basewagesymbol &= \sum_{i=1}^n \text{Т}_\text{чi} \cdot \text{Т}_\text{ч} \cdot \developertimefundsymbol \cdot K = \\
 	&= (\employeeahourwage + \employeebhourwage + \employeechourwage) \cdot \hourspershiftvalue \cdot \developertimefundvalue \cdot \bonusratevalue = \basewagevalue~\text{\byn},
-\end{align}
+\end{aligned}
 \end{equation}
 \begin{explanation}
 где & $ \text{Т}_\text{чi} $ & часовая тарифная ставка i-го исполнителя, \byn;\\
@@ -291,18 +291,18 @@
 
 Отчисления в фонд социальной защиты населения и в фонд обязательного страхования определяются в соответствии с действующим законодательством по нормативу в процентном отношении к фонду основной и дополнительной зарплат по следующим формулам
 \begin{equation}
-\begin{align}
+\begin{aligned}
 	\ssfchargessymbol &= \frac{(\basewagesymbol + \additionalwagesymbol) \cdot \ssfratesymbol}{100\%},\\
 	\insurancechargessymbol &= \frac{(\basewagesymbol + \additionalwagesymbol) \cdot \insuranceratesymbol}{100\%}.
-\end{align}
+\end{aligned}
 \end{equation} 
 
 В настоящее время нормы отчислений в ФСЗН $\ssfratesymbol~=~\ssfratevalue$ и в фонд обязательного страхования $\insuranceratesymbol~=~\insuranceratevalue$. Исходя из этого, размеры отчислений
 \begin{equation}
-\begin{align}
+\begin{aligned}
 	\ssfchargessymbol &= \frac{(\basewagevalue + \additionalwagevalue) \cdot \ssfratevalue}{100\%} = \ssfchargesvalue~\byn,\\[5mm]
 	\insurancechargessymbol &= \frac{(\basewagevalue + \additionalwagevalue) \cdot \insuranceratevalue}{100\%} = \insurancechargesvalue~\byn\\[5mm]
-\end{align}
+\end{aligned}
 \end{equation}
 
 Расходы по статье <<Материалы>> отражают траты на магнитные носители, бумагу, красящие материалы, необходимые для разработки ПО определяются по нормативу к фонду основной заработной платы разработчиков. Исходя из принятого норматива $\consumablesratesymbol~=~\consumablesratevalue$ определим величину расходов
@@ -335,11 +335,11 @@
 Общая сумма расходов по смете определяется как сумма вышерассчитанных показателей
 
 \begin{equation}
-	\totalchargessymbol &= \basewagesymbol + \additionalwagesymbol + \ssfchargessymbol + \insurancechargessymbol + \consumableschargessymbol + \machinetimechargessymbol + \businesstripchargessymbol + \otherchargessymbol + \overheadchargessymbol =
+\begin{aligned}
+	\totalchargessymbol = \basewagesymbol + \additionalwagesymbol + \ssfchargessymbol &+ \insurancechargessymbol + \consumableschargessymbol + \machinetimechargessymbol + \businesstripchargessymbol + \otherchargessymbol + \overheadchargessymbol =\\
+	&= \totalchargesvalue~\byn
+\end{aligned}
 \end{equation}
-\begin{equation*}
-	= \totalchargesvalue~\byn
-\end{equation*}
 
 Рентабельность определяется из результатов анализа рыночных условий и переговоров с потребителями ПО. Исходя из принятого уровня рентабельности $\profitabilityratesymbol~=~\profitabilityratevalue$, прибыль от реализации ПО составит
 \begin{equation}
@@ -424,12 +424,12 @@
 	\end{tabular}
 \end{table}
 
-Общие капитальные вложения заказчика (потребителя), связанные с приобретением, внедрением и использованием ПС, включают в себя затраты на приобретение, освоение ПС, а также затраты на доукомплектование техническими средствами в связи с внедрением нового ПС, а также затраты на пополнение оборотных средств, в связи с использованием нового ПС, и вычисляются следующим образом
+Общие капитальные вложения заказчика (потребителя) вычисляются следующим образом
 \begin{equation}
-\begin{align}
+\begin{aligned}
 	\capitalinvestmentsymbol = \purchasecostsymbol + \deploymentcostsymbol + \maintenancecostsymbol &= \sellingpricevalue + \deploymentchargesvalue + \maintenancechargesvalue = \\
 	&= \capitalinvestmentvalue~\byn
-\end{align}
+\end{aligned}
 \end{equation}
 \begin{explanation}
 где &$ \purchasecostsymbol $& затраты пользователя на приобретение ПО по отпускной цене;\\
@@ -481,11 +481,11 @@
 \label{table:economics:effect:final_data}
 \centering
 	\begin{tabular}{{ 
-	|>{\raggedright}m{0.35\textwidth} | 
-	 >{\centering}m{0.13\textwidth} | 
-	 >{\centering}m{0.13\textwidth} | 
-	 >{\centering}m{0.13\textwidth} | 
-	 >{\centering\arraybackslash}m{0.13\textwidth}|}}
+	|>{\raggedright}m{0.32\textwidth} | 
+	 >{\centering}m{0.1375\textwidth} | 
+	 >{\centering}m{0.1375\textwidth} | 
+	 >{\centering}m{0.1375\textwidth} | 
+	 >{\centering\arraybackslash}m{0.1375\textwidth}|}}
 
   	\hline
 	{\begin{center} Наименование показателя \end{center}} & 2017 г. & 2018 г. & 2019 г. & 2020 г. \\
