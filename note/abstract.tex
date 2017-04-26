@@ -1,4 +1,10 @@
 \sectioncentered*{Реферат}
 \thispagestyle{empty}
 
+% Добавляем три к счетчику страниц, поскольку двухстороннее задание, а также ведомость печатаются отдельно
+\FPeval{\totalpagesnumber}{round(\arabic{pagesLTS.pagenr} + 3, 0)}
+\newcommand{\totalpages}{\num{\totalpagesnumber}} 
+
+Страниц \totalpages
+
 \newpage
