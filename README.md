@@ -25,7 +25,7 @@
 
 ## Установка
 ### Linux, Ubuntu (TeX Live)
-- установить texlive-full: `sudo apt-get install texlive-full`
+- установить texlive-full: `sudo apt install texlive-full`
 - установить модифицированный [scalable-cyrfonts-tex (ссылка на скачивание)](https://yadi.sk/d/GW2PhDgEcJH7m): `sudo dpkg -i scalable-cyrfonts-tex-shurph_4.16_all.deb`
 - можно приступать к сборке проекта
 
