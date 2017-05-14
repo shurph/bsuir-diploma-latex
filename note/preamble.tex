@@ -40,7 +40,10 @@
 
 % Зачем: Настраивает отступы от границ страницы.
 % Почему: Пункт 2.1.2 Требований по оформлению пояснительной записки.
-\usepackage[left=3cm,top=2.0cm,right=1.5cm,bottom=2.7cm]{geometry}
+\usepackage[left=3cm,top=1.5cm,right=2cm,bottom=2cm]{geometry}
+% Внимание! Принтеры склонны добавлять собственные отступы, 
+% из-за чего может понадобится следующая коррекция:
+% \usepackage[left=2.5cm,top=1.3cm,right=1.3cm,bottom=2cm]{geometry}
 
 
 % Зачем: Настраивает межстрочный интервал, для размещения 40 +/- 3 строки текста на странице.
@@ -146,6 +149,15 @@
     {1em \@plus .2ex}%
     {\raggedright\hyphenpenalty=10000\normalfont\normalsize\bfseries}}
 \makeatother
+% Далее приведен вариант для кафедры ПОИТ: номер - полужирным, текст заголовка - обычным.
+% \makeatletter
+% \renewcommand\subsection{%
+%   \@startsection{subsection}{2}%
+%     {\fivecharsapprox\bfseries}%
+%     {-1em \@plus -1ex \@minus -.2ex}%
+%     {1em \@plus .2ex}%
+%     {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
+% \makeatother
 
 
 % Зачем: Задает стиль заголовков пунктов
@@ -158,6 +170,15 @@
     {\z@}%
     {\raggedright\hyphenpenalty=10000\normalfont\normalsize\bfseries}}
 \makeatother
+% Далее приведен вариант для кафедры ПОИТ: номер - полужирным, текст заголовка - обычным.
+% \makeatletter
+% \renewcommand\subsubsection{
+%   \@startsection{subsubsection}{3}%
+%     {\fivecharsapprox\bfseries}%
+%     {-1em \@plus -1ex \@minus -.2ex}%
+%     {\z@}%
+%     {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
+% \makeatother
 
 % Зачем: для оформления введения и заключения, они должны быть выровнены по центру.
 % Почему: Пункты 1.1.15 и 1.1.11 Требований по оформлению пояснительной записки.
@@ -511,9 +532,6 @@
 % Для оформления таблиц, не влазящих на 1 страницу
 \usepackage{longtable}
 
-% Для включения pdf документов в результирующий файл
-\usepackage{pdfpages}
-
 % Для использования знака градуса и других знаков
 % http://ctan.org/pkg/gensymb
 \usepackage{textcomp}
@@ -545,8 +563,8 @@
    \fi
 }
 
-% Зачем: изменение ориентации отдельных страниц
-% использование:
+% Зачем: изменение ориентации отдельных страниц.
+% Использование:
 % \begin{landscape}
 % ...
 % \end{landscape}
@@ -559,3 +577,11 @@
 
 % Зачем: чтобы был доступен счетчик страниц pagesLTS.pagenr. 
 \usepackage{pageslts}
+
+
+% Зачем: если таблица или рисунок находится на отдельной странице,
+% то они должны находиться у верхнего края листа.
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@fpbot}{0pt plus 1fil}
+\makeatother
