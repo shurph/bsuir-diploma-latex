@@ -1,8 +1,12 @@
 ﻿# Примечание к форку
 Более хорошая структуризация разделов и подразделов.
+
 Немного подправлена преамбула.
+
 Здесь выпилен полный пример записки, оставлены только куски, в которых есть интересные конструкции (рисунок, таблица, перечисление).
+
 *Крайне рекомендую настроить окружение из Sublime + LaTeXTools + SumatraPDF.* Будут вам и [горячие клавиши](https://latextools.readthedocs.io/en/latest/keybindings/), и предпросмотр формул и картинок, и быстрый переход из кода в pdf-ку и обратно и много всяких других фич.
+
 Для сборки документа рекомендуется выбрать LaTeX - Basic Builder - PdfLaTeX (для отображения списка сборщиков: ctrl + shift + B, находясь в каком-либо .tex файле).
 
 Будет обновлено, ~~когда~~ если диплом будет защищен.
@@ -25,8 +29,8 @@
 
 ## Установка
 ### Linux, Ubuntu (TeX Live)
-- установить texlive-full: `sudo apt install texlive-full`
-- установить модифицированный [scalable-cyrfonts-tex (ссылка на скачивание)](https://yadi.sk/d/GW2PhDgEcJH7m): `sudo dpkg -i scalable-cyrfonts-tex-shurph_4.16_all.deb`
+- установить texlive-full: `sudo apt-get install texlive-full`
+- установить модифицированный [scalable-cyrfonts-tex](https://yadi.sk/d/GW2PhDgEcJH7m): `sudo dpkg -i scalable-cyrfonts-tex-shurph_4.16_all.deb`
 - можно приступать к сборке проекта
 
 ### Windows (MiKTeX)
