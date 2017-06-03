@@ -9,6 +9,7 @@ PDFLATEX = pdflatex
 DIPLOMA_REPORT_PDF = diploma_report
 PRACTICE_REPORT_PDF = practice_report
 MASTERS_PRACTICE_REPORT_PDF = masters_practice_report
+MASTERS_REPORT_PDF = masters_report
 COURSE_REPORT_PDF = course_report
 TITLE_PDF = diploma_title_only
 TASK_PDF = diploma_task_only
@@ -31,6 +32,12 @@ $(MASTERS_PRACTICE_REPORT_PDF).pdf: *.tex
 	$(BIBTEX) $(MASTERS_PRACTICE_REPORT_PDF).aux
 	$(PDFLATEX) $(MASTERS_PRACTICE_REPORT_PDF)
 	$(PDFLATEX) $(MASTERS_PRACTICE_REPORT_PDF)
+
+$(MASTERS_REPORT_PDF).pdf: *.tex
+	$(PDFLATEX) $(MASTERS_REPORT_PDF)
+	$(BIBTEX) $(MASTERS_REPORT_PDF).aux
+	$(PDFLATEX) $(MASTERS_REPORT_PDF)
+	$(PDFLATEX) $(MASTERS_REPORT_PDF)
 
 $(DIPLOMA_REPORT_PDF).pdf: *.tex
 	$(PDFLATEX) $(DIPLOMA_REPORT_PDF)
@@ -78,5 +85,5 @@ cleanall: clean
 
 .PHONY: clean
 clean:
-	$(RM) *.aux *.log *.out *.toc *.gz *.gz\(busy\) *.blg *.bbl $(DIPLOMA_REPORT_PDF).pdf $(TASK_PDF).pdf $(TITLE_PDF).pdf $(PRACTICE_REPORT_PDF).pdf $(COURSE_REPORT_PDF).pdf $(ECON_PDF).pdf $(OT_PDF).pdf
+	$(RM) *.aux *.log *.out *.toc *.gz *.gz\(busy\) *.blg *.bbl $(DIPLOMA_REPORT_PDF).pdf $(TASK_PDF).pdf $(TITLE_PDF).pdf $(PRACTICE_REPORT_PDF).pdf $(COURSE_REPORT_PDF).pdf $(ECON_PDF).pdf $(OT_PDF).pdf $(MASTERS_REPORT_PDF).pdf $(MASTERS_PRACTICE_REPORT_PDF).pdf
 
