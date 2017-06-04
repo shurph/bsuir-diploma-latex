@@ -60,7 +60,7 @@
 среднее время эвакуации, дисперсия времени эвакуации "---
 разрабатываемое программное средство должно вычислять данные характеристики и представлять их пользователю.
 Изменения, требуемые для реализации описанного режима эвакуации, были внесены во все три модуля программного средства,
-и будут описаны в разделах~\ref{sec:development:preprocessor:escape}, \ref{sec:development:core:escape} и \ref{sec:development:animator:escape}.
+и будут описаны в разделах~\ref{sec:development:preprocessor:escape}, \ref{sec:development:core:escape} и \ref{sec:development:animator}.
 
 
 \subsection{Модификации модуля чтения и разбора схемы сооружения и сценария симуляции}
@@ -72,13 +72,13 @@
 
 \begin{figure}[ht!]
   \centering
-  \includegraphics[width=\dimexpr\linewidth-4.5em\relax]{masters_sim_params_example}
+  \includegraphics[width=\dimexpr\linewidth-7.0em\relax]{masters_sim_params_example}
   \caption{Пример сценария симуляции}
   \label{sec:development:preprocessor:scenario_dsl_listing}
 \end{figure}
 
 В модуль были внесены всего две модификации: поддержка различных режимов симуляции (задаются в сценарии симуляции) и поддержка источников паники (задаются в схеме сооружения).
-Первая модификация описана в разделе~\ref{sec:development:preprocessor:escape}, а вторая "--- в разделе~\ref{sec:development:preprocessor:panic_source}.
+Первая модификация описана в разделе~\ref{sec:development:preprocessor:escape}, а вторая "--- в разделе~\ref{sec:development:preprocessor:panicsource}.
 
 \subsubsection{Режимы симуляции в сценарии симуляции}
 \label{sec:development:preprocessor:escape}
@@ -106,7 +106,7 @@
   \item данные элемента, закодированные в бинарном формате (переменное количество байт).
 \end{itemize}
 
-Таким образом, подробно новый элемент конфигурации можно представить в виде таблицы~\ref{sec:development:preprocessor:format_table_escape}.
+Таким образом, подробно новый элемент конфигурации можно представить в виде таблицы~\ref{sec:development:preprocessor:format_table_escape}.\\[1em]
 
 \begin{longtable}[ht]{| >{\centering}m{0.25\textwidth}
                       | >{\centering}m{0.25\textwidth}
@@ -128,7 +128,7 @@
 
 
 \subsubsection{Источники паники в схеме сооружения}
-\label{sec:development:preprocessor:panic_source}
+\label{sec:development:preprocessor:panicsource}
 
 В качестве схемы сооружения выступает особым образом модифицированный SVG~\cite{svg_home} файл.
 SVG "--- распространенный формат векторной графики на основе XML.

@@ -1,0 +1,1822 @@
+diff --git a/animator/Makefile b/animator/Makefile
+index a7e8c65..0fba84b 100644
+--- a/animator/Makefile
++++ b/animator/Makefile
+@@ -2,7 +2,7 @@ CC=gcc
+ # CFLAGS=-O0 -ggdb -DDEBUG -c -std=gnu11
+ CFLAGS=-O2 -c -std=gnu11
+ CFLAGS += `sdl2-config --cflags` `pkg-config --cflags librsvg-2.0`
+-LDFLAGS += `sdl2-config --libs` `pkg-config --libs librsvg-2.0`
++LDFLAGS += `sdl2-config --libs` `pkg-config --libs SDL2_ttf` `pkg-config --libs librsvg-2.0`
+ CPP_SOURCES=$(wildcard *.c sdl/*.c)
+ OBJECTS=$(CPP_SOURCES:.c=.o)
+ EXECUTABLE=animator
+diff --git a/animator/controller.c b/animator/controller.c
+index 70126ce..7192be9 100644
+--- a/animator/controller.c
++++ b/animator/controller.c
+@@ -9,6 +9,7 @@
+ #include "controller.h"
+ 
+ void controller_error(const char* msg);
++void controller_enter_statistics_loop(struct ControllerData* controller_data, double min, double max, long count, double avg, double variance, double std_deviation);
+ int wait_for_stdin();
+ unsigned char controller_read_byte();
+ unsigned short controller_read_short();
+@@ -27,7 +28,6 @@ void controller_read_init_message(struct ControllerData* controller_data)
+ {
+   controller_data->scene_file_name = controller_read_string();
+   controller_data->scene_scale = controller_read_double();
+-  controller_data->density_map_enabled = controller_read_byte();
+   controller_data->sdl_data.density_map_min_threshold = controller_read_double();
+   controller_data->sdl_data.density_map_max_threshold = controller_read_double();
+ }
+@@ -45,36 +45,59 @@ void controller_main_loop(struct ControllerData* controller_data)
+   gettimeofday(&current_time, NULL);
+   double current_time_double = current_time.tv_sec + current_time.tv_usec / 1000000.0;
+   controller_data->start_time = current_time_double;
++  double data_time;
+ 
+-  while (!feof(stdin)) {
+-    wait_for_stdin();
+-    double data_time = controller_read_double();
+-
+-    sdl_clr(&controller_data->sdl_data);
+-
+-    sdl_draw_texture(&controller_data->sdl_data, controller_data->sdl_data.background);
++  unsigned char statistics_mode = 0;
++  double min, max, avg, variance, std_deviation;
++  long count;
+ 
+-    if (controller_data->density_map_enabled) {
+-      unsigned char has_densities = controller_read_byte();
+-      if (has_densities) {
++  while (!feof(stdin) && !statistics_mode) {
++    wait_for_stdin();
++    unsigned char message_type = controller_read_byte();
++    switch(message_type) {
++    case CURRENT_TIME_TYPE:
++      data_time = controller_read_double();
++      break;
++    case LOCATIONS_TYPE:
++      sdl_clr(&controller_data->sdl_data);
++
++      sdl_draw_texture(&controller_data->sdl_data, controller_data->sdl_data.background);
++
++      {
++        long people_count = controller_read_long();
++        for (long i = 0; i < people_count; i++) {
++          short person_x = controller_read_short();
++          short person_y = controller_read_short();
++          double heading = controller_read_double();
++          double panic_level = controller_read_double();
++          sdl_draw_person(&controller_data->sdl_data, person_x, person_y, heading, panic_level);
++        }
++      }
++      break;
++    case DENSITY_MAP_TYPE:
++      {
+         long densities_count = controller_read_long();
+         sdl_clear_density(&controller_data->sdl_data);
+         for (long i = 0; i < densities_count; i++) {
+-            int x = controller_read_short();
+-            int y = controller_read_short();
+-            double density = controller_read_double();
+-            sdl_set_density(&controller_data->sdl_data, x, y, density);
+-          }
++          int x = controller_read_short();
++          int y = controller_read_short();
++          double density = controller_read_double();
++          sdl_set_density(&controller_data->sdl_data, x, y, density);
++        }
+       }
+       sdl_draw_density(&controller_data->sdl_data);
+-    }
+-
+-    long people_count = controller_read_long();
+-    for (long i = 0; i < people_count; i++) {
+-      short person_x = controller_read_short();
+-      short person_y = controller_read_short();
+-      double heading = controller_read_double();
+-      sdl_draw_person(&controller_data->sdl_data, person_x, person_y, heading);
++      break;
++    case STATISTICS_TYPE:
++      {
++        statistics_mode = 1;
++        min = controller_read_double();
++        max = controller_read_double();
++        count = controller_read_long();
++        avg = controller_read_double();
++        variance = controller_read_double();
++        std_deviation = controller_read_double();
++      }
++      break;
+     }
+ 
+     gettimeofday(&current_time, NULL);
+@@ -92,6 +115,32 @@ void controller_main_loop(struct ControllerData* controller_data)
+     }
+     sdl_update(&controller_data->sdl_data);
+   }
++
++  controller_enter_statistics_loop(controller_data, min, max, count, avg, variance, std_deviation);
++}
++
++double controller_statistics_round(double value) {
++  return round(value * 100) / 100.0;
++}
++
++void controller_enter_statistics_loop(struct ControllerData* controller_data, double min, double max, long count, double avg, double variance, double std_deviation) {
++  char *statistics_text = malloc(sizeof(char) * 1000);
++  sprintf(statistics_text,
++    "Simulation done!\nTravel time statistics: min=%.2f, max=%.2f, count=%d, avg=%.2f, variance=%.2f, std_deviation=%.2f\nPress spacebar to exit.",
++    controller_statistics_round(min), controller_statistics_round(max), count,
++    controller_statistics_round(avg), controller_statistics_round(variance), controller_statistics_round(std_deviation)
++  );
++  SDL_Texture* statistics_texture = sdl_get_statistics_texture(&controller_data->sdl_data, statistics_text);
++  free(statistics_text);
++  while (!sdl_is_spacebar_pressed(&controller_data->sdl_data)) {
++    sdl_clr(&controller_data->sdl_data);
++
++    sdl_draw_texture(&controller_data->sdl_data, controller_data->sdl_data.background);
++    sdl_draw_texture(&controller_data->sdl_data, statistics_texture);
++
++    sdl_update(&controller_data->sdl_data);
++    usleep(10000);
++  };
+ }
+ 
+ void controller_shutdown(struct ControllerData* controller_data)
+diff --git a/animator/controller.h b/animator/controller.h
+index 747e208..78366f5 100644
+--- a/animator/controller.h
++++ b/animator/controller.h
+@@ -12,10 +12,13 @@ struct ControllerData {
+   double person_file_scale;
+   char* scene_file_name;
+   double scene_scale;
+-
+-  unsigned char density_map_enabled;
+ };
+ 
++#define CURRENT_TIME_TYPE 0
++#define LOCATIONS_TYPE 1
++#define DENSITY_MAP_TYPE 2
++#define STATISTICS_TYPE 3
++
+ void controller_init_sdl(struct ControllerData*);
+ void controller_read_init_message(struct ControllerData*);
+ void controller_load_textures(struct ControllerData*);
+diff --git a/animator/sdl.c b/animator/sdl.c
+index a524e1c..6e9d4a4 100644
+--- a/animator/sdl.c
++++ b/animator/sdl.c
+@@ -4,8 +4,11 @@
+ #include <cairo.h>
+ #include <librsvg/rsvg.h>
+ 
++#define MAIN_FONT_FILE_PATH "/usr/share/fonts/TTF/DejaVuSerif.ttf"
++
+ SDL_Texture* sdl_load_svg(struct SDLData* sdl_data, const char* file, double scale, double angle);
+ void sdl_error(const char* msg);
++void ttf_error(const char* msg);
+ void rsvg_error(const char* msg, GError* err);
+ void cairo_error(const char* msg);
+ 
+@@ -13,9 +16,16 @@ void sdl_init(struct SDLData* sdl_data, const char* window_title)
+ {
+   if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
+     sdl_error("SDL_Init");
+-    exit(1);
+   }
+ 
++  if (TTF_Init() != 0) {
++    ttf_error("TTF_Init");
++  }
++
++  sdl_data->main_font = TTF_OpenFont(MAIN_FONT_FILE_PATH, 16);
++  if (sdl_data->main_font == NULL)
++    ttf_error("TTF_OpenFont");
++
+   sdl_data->window = SDL_CreateWindow(window_title, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
+     SDL_WINDOW_SHOWN);
+   if (sdl_data->window == NULL)
+@@ -64,7 +74,7 @@ void sdl_draw_texture(struct SDLData* sdl_data, SDL_Texture* texture)
+   SDL_RenderCopy(sdl_data->renderer, texture, NULL, &dst);
+ }
+ 
+-void sdl_draw_person(struct SDLData* sdl_data, int x, int y, double heading)
++void sdl_draw_person(struct SDLData* sdl_data, int x, int y, double heading, double panic_level)
+ {
+   double angle = heading * 180 / M_PI + 90;
+   long angle_int = lround(angle);
+@@ -84,7 +94,9 @@ void sdl_draw_person(struct SDLData* sdl_data, int x, int y, double heading)
+   dst.x = x - dst.w / 2;
+   dst.y = y - dst.h / 2;
+ 
++  SDL_SetTextureColorMod(texture, 255, 255 * (1 - panic_level), 255 * (1 - panic_level));
+   SDL_RenderCopy(sdl_data->renderer, texture, NULL, &dst);
++  SDL_SetTextureColorMod(texture, 255, 255, 255);
+ }
+ 
+ void sdl_set_density(struct SDLData* sdl_data, int x, int y, double density)
+@@ -129,6 +141,65 @@ void sdl_clear_density(struct SDLData* sdl_data)
+     }
+ }
+ 
++SDL_Texture* sdl_get_statistics_texture(struct SDLData* sdl_data, char* statistics_text)
++{
++  Uint32 rmask = 0x00ff0000;
++  Uint32 gmask = 0x0000ff00;
++  Uint32 bmask = 0x000000ff;
++  Uint32 amask = 0xff000000;
++  int bpp = 32;
++  int btpp = 4;
++  int stride = sdl_data->scene_width * btpp;
++
++  Uint32* faded_bg = malloc(sdl_data->scene_width * sdl_data->scene_height * btpp);
++  for(int i = 0; i < sdl_data->scene_width * sdl_data->scene_height; i++) {
++    faded_bg[i] = 0xdd999999;
++  }
++
++  SDL_Surface *sdl_surface = SDL_CreateRGBSurfaceFrom((void *) faded_bg, sdl_data->scene_width, sdl_data->scene_height,
++    bpp, stride, rmask, gmask, bmask, amask);
++
++  if (sdl_surface == NULL)
++    sdl_error("SDL_CreateRGBSurfaceFrom");
++
++  SDL_Color text_color = {0, 0, 0, 255};
++  SDL_Surface* text_surface = TTF_RenderText_Blended_Wrapped(sdl_data->main_font, statistics_text, text_color, round(sdl_data->scene_width * 0.5));
++
++  if (text_surface == NULL)
++    ttf_error("TTF_RenderText_Blended");
++
++  SDL_Rect dst = {sdl_data->scene_width / 2 - text_surface->w / 2, sdl_data->scene_height / 2 - text_surface->h / 2, text_surface->w, text_surface->h};
++  int res = SDL_BlitSurface(text_surface, NULL, sdl_surface, &dst);
++  if (res != 0) {
++    sdl_error("SDL_BlitSurface");
++  }
++
++  SDL_Texture *tex = SDL_CreateTextureFromSurface(sdl_data->renderer, sdl_surface);
++
++  if (tex == NULL)
++    sdl_error("SDL_CreateTextureFromSurface");
++
++  SDL_FreeSurface(sdl_surface);
++  SDL_FreeSurface(text_surface);
++
++  return tex;
++}
++
++unsigned char sdl_is_spacebar_pressed(struct SDLData* sdl_data)
++{
++  unsigned char spacebar_pressed = 0;
++  SDL_Event event;
++  while (SDL_PollEvent(&event)) {
++    if (event.type == SDL_KEYUP) {
++      if (event.key.keysym.sym == SDLK_SPACE) {
++        spacebar_pressed = 1;
++      }
++    }
++  }
++  return spacebar_pressed;
++}
++
++
+ void sdl_clr(struct SDLData* sdl_data)
+ {
+   SDL_RenderClear(sdl_data->renderer);
+@@ -148,6 +219,7 @@ void sdl_shutdown(struct SDLData* sdl_data)
+   SDL_DestroyTexture(sdl_data->background);
+   SDL_DestroyRenderer(sdl_data->renderer);
+   SDL_DestroyWindow(sdl_data->window);
++  TTF_CloseFont(sdl_data->main_font);
+   SDL_Quit();
+ }
+ 
+@@ -244,6 +316,12 @@ void sdl_error(const char* msg)
+   exit(1);
+ }
+ 
++void ttf_error(const char* msg)
++{
++  fprintf(stderr, "[SDL_TTF] Error: %s - %s\n", msg, TTF_GetError());
++  exit(1);
++}
++
+ void rsvg_error(const char* msg, GError* err)
+ {
+   fprintf(stderr, "[RSVG] Error: %s failed\n", msg);
+diff --git a/animator/sdl.h b/animator/sdl.h
+index a7b3adb..2b4ab2d 100644
+--- a/animator/sdl.h
++++ b/animator/sdl.h
+@@ -2,6 +2,7 @@
+ #define _SDL_H_
+ 
+ #include <SDL.h>
++#include <SDL_ttf.h>
+ 
+ #define SCREEN_WIDTH 1280
+ #define SCREEN_HEIGHT 720
+@@ -12,6 +13,7 @@ struct SDLData {
+   SDL_Texture* background;
+ 
+   SDL_Texture* person_textures[360];
++  TTF_Font* main_font;
+ 
+   double density_map_min_threshold;
+   double density_map_max_threshold;
+@@ -25,10 +27,12 @@ void sdl_init(struct SDLData*, const char* window_title);
+ void sdl_set_svg_background(struct SDLData*, const char* file);
+ void sdl_load_person_svg(struct SDLData*, const char* file, double person_svg_scale, double scene_scale);
+ void sdl_draw_texture(struct SDLData*, SDL_Texture*);
+-void sdl_draw_person(struct SDLData*, int x, int y, double heading);
++void sdl_draw_person(struct SDLData*, int x, int y, double heading, double panic_level);
+ void sdl_set_density(struct SDLData*, int x, int y, double density);
+ void sdl_clear_density(struct SDLData*);
+ void sdl_draw_density(struct SDLData*);
++SDL_Texture* sdl_get_statistics_texture(struct SDLData*, char* statistics_text);
++unsigned char sdl_is_spacebar_pressed(struct SDLData*);
+ 
+ void sdl_clr(struct SDLData*);
+ void sdl_update(struct SDLData*);
+diff --git a/core/src/configuration/mod.rs b/core/src/configuration/mod.rs
+index b5e24e8..daa204d 100644
+--- a/core/src/configuration/mod.rs
++++ b/core/src/configuration/mod.rs
+@@ -26,6 +26,15 @@ pub enum DistributionValue {
+ }
+ 
+ #[derive(Debug,Clone)]
++pub enum SimType {
++    Flow,
++    Escape
++}
++
++#[derive(Debug,Clone)]
++pub struct SimTypeCfgWrap(pub SimType);
++
++#[derive(Debug,Clone)]
+ pub struct SceneWidth(pub u16);
+ #[derive(Debug,Clone)]
+ pub struct SceneHeight(pub u16);
+@@ -54,6 +63,12 @@ pub struct SceneTargetArea {
+ #[derive(Debug,Clone)]
+ pub struct SceneTargetAreas(pub Vec<SceneTargetArea>);
+ #[derive(Debug,Clone)]
++pub struct ScenePanicSource {
++    pub x : u16, pub y : u16, pub r : u16, pub power: f64,
++}
++#[derive(Debug,Clone)]
++pub struct ScenePanicSources(pub Vec<ScenePanicSource>);
++#[derive(Debug,Clone)]
+ pub struct SceneFilename(pub String);
+ 
+ #[derive(Debug,Clone)]
+@@ -97,6 +112,26 @@ fn parse_config_file(config: &mut AnyMap, file: &mut Read) {
+     while !done {
+         done = !parse_single_item(config, file, &mut buf);
+     }
++
++    let panic_sources_vec = match config.remove::<ScenePanicSources>() {
++        Some(scene_panic_sources) => {
++            let ScenePanicSources(vec) = scene_panic_sources;
++            vec
++        },
++        None => Vec::new()
++    };
++    config.insert(ScenePanicSources(panic_sources_vec));
++
++    let walls_vec = match config.remove::<SceneWalls>() {
++        Some(scene_walls) => {
++            let SceneWalls(vec) = scene_walls;
++            vec
++        },
++        None => Vec::new()
++    };
++    config.insert(SceneWalls(walls_vec));
++
++
+     info!("Config readed.");
+ }
+ 
+@@ -105,6 +140,7 @@ fn parse_single_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) -> b
+     if read != 0 {
+         let section = buf[0];
+         match section {
++            0x00 => parse_general_item(config, file, buf),
+             0x01 => parse_scene_item(config, file, buf),
+             0x02 => parse_time_item(config, file, buf),
+             0x03 => parse_spawn_item(config, file, buf),
+@@ -113,14 +149,29 @@ fn parse_single_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) -> b
+             0x06 => parse_density_map_item(config, file, buf),
+             _ => panic!("Unknown section in config: {}", section)
+         }
+-        // let str_value = str::from_utf8(&[116, 116, 101, 115, 116]).unwrap().to_string().clone();
+-        // config.insert(SceneFile(str_value));
+         true
+     } else {
+         false
+     }
+ }
+ 
++fn parse_general_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
++    let element = parse_u16(file, buf);
++    match element {
++        0x01 => {
++            let typ = parse_u8(file, buf);
++            let config_typ = match typ {
++                0x01 => SimType::Flow,
++                0x02 => SimType::Escape,
++                _ => panic!("Unknown type in general config: {}", typ)
++            };
++            debug!("Parsed SimType: {:?}", config_typ);
++            config.insert(SimTypeCfgWrap(config_typ));
++        },
++        _ => panic!("Unknown element in general config: {}", element)
++    };
++}
++
+ fn parse_scene_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+     let element = parse_u16(file, buf);
+     match element {
+@@ -174,6 +225,25 @@ fn parse_scene_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8]) {
+             config.insert(SceneTargetAreas(target_areas_vec));
+             debug!("Parsed SceneTargetArea: {} {} {} {} {} {} {}", x0, y0, x1, y1, id, seq_no, last);
+         },
++        0x04 => {
++            let x = parse_u16(file, buf);
++            let y = parse_u16(file, buf);
++            let r = parse_u16(file, buf);
++            let int_power = parse_u8(file, buf);
++            let power = (int_power as f64) / 255_f64;
++
++            let mut panic_sources_vec = match config.remove::<ScenePanicSources>() {
++                Some(scene_panic_sources) => {
++                    let ScenePanicSources(vec) = scene_panic_sources;
++                    vec
++                },
++                None => Vec::new()
++            };
++
++            panic_sources_vec.push(ScenePanicSource{ x: x, y: y, r: r, power: power});
++            config.insert(ScenePanicSources(panic_sources_vec));
++            debug!("Parsed ScenePanicSource: {} {} {} {}", x, y, r, power);
++        },
+         0x11 => {
+             let scene_width = parse_u16(file, buf);
+             config.insert(SceneWidth(scene_width));
+@@ -307,7 +377,7 @@ fn parse_density_map_item(config: &mut AnyMap, file: &mut Read, buf : &mut [u8])
+ 
+ fn parse_coordinates(file: &mut Read, buf : &mut [u8]) -> (u16, u16, u16, u16) {
+     let mut coordinates = [0u16; 4];
+-    file.read(&mut buf[0 .. 8]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, 8);
+     for i in 0..4 {
+         coordinates[i] = two_u8le_to_u16(buf[2 * i], buf[2 * i + 1]);
+     }
+@@ -335,7 +405,7 @@ fn parse_distribution(file: &mut Read, buf : &mut [u8]) -> DistributionValue {
+ 
+ fn parse_string(file: &mut Read, buf : &mut [u8]) -> String {
+     let string_length = parse_u16(file, buf);
+-    file.read(&mut buf[0 .. string_length as usize]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, string_length as usize);
+     let mut string_bin = Vec::new();
+     for &x in (&buf[0 .. string_length as usize]).iter() {
+         string_bin.push(x);
+@@ -345,22 +415,22 @@ fn parse_string(file: &mut Read, buf : &mut [u8]) -> String {
+ }
+ 
+ fn parse_u8(file: &mut Read, buf : &mut [u8]) -> u8 {
+-    file.read(&mut buf[0 .. 1]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, 1);
+     buf[0]
+ }
+ 
+ fn parse_u16(file: &mut Read, buf : &mut [u8]) -> u16 {
+-    file.read(&mut buf[0 .. 2]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, 2);
+     two_u8le_to_u16(buf[0], buf[1])
+ }
+ 
+ fn parse_u32(file: &mut Read, buf : &mut [u8]) -> u32 {
+-    file.read(&mut buf[0 .. 4]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, 4);
+     four_u8le_to_u32(buf[0], buf[1], buf[2], buf[3])
+ }
+ 
+ fn parse_f64(file: &mut Read, buf : &mut [u8]) -> f64 {
+-    file.read(&mut buf[0 .. 8]).ok().expect("Can't read from file");
++    read_n_bytes(file, buf, 8);
+     let mut value_bin = [0u8; 8];
+     for (&x, p) in (&buf[0 .. 8]).iter().zip(value_bin.iter_mut()) {
+         *p = x;
+@@ -382,3 +452,10 @@ fn four_u8le_to_u32(x1: u8, x2: u8, x3: u8, x4: u8) -> u32 {
+         (x4 as u32);
+     result
+ }
++
++fn read_n_bytes(file: &mut Read, buf : &mut [u8], n: usize) {
++    let mut read = 0_usize;
++    while read != n {
++        read += file.read(&mut buf[read ..  n]).ok().expect("Can't read from file");
++    }
++}
+diff --git a/core/src/output/mod.rs b/core/src/output/mod.rs
+index 4b30a26..49f0df0 100644
+--- a/core/src/output/mod.rs
++++ b/core/src/output/mod.rs
+@@ -8,6 +8,11 @@ use std::io::prelude::*;
+ use ::simulation::Simulation;
+ use ::simulation::person::Person;
+ 
++const CURRENT_TIME_TYPE: u8 = 0_u8;
++const LOCATIONS_TYPE: u8 = 1_u8;
++const DENSITY_MAP_TYPE: u8 = 2_u8;
++const STATISTICS_TYPE: u8 = 3_u8;
++
+ pub struct Output {
+     scene_file_name: String,
+     scene_scale: f64,
+@@ -36,24 +41,20 @@ impl Output {
+         let mut out = ::std::io::stdout();
+         self.write_string(&mut out, &self.scene_file_name);
+         self.write_f64(&mut out, self.scene_scale);
+-        let density_map_enabled_num = if self.density_map_enabled { 1_u8 } else { 0_u8 };
+-        self.write_u8(&mut out, density_map_enabled_num);
+         self.write_f64(&mut out, self.density_map_min_threshold);
+         self.write_f64(&mut out, self.density_map_max_threshold);
+     }
+ 
+     pub fn dump_state(&mut self, simulation: &Simulation) {
+         let mut out = ::std::io::stdout();
+-        let current_time = simulation.time.current_time;
+-        self.write_f64(&mut out, current_time);
++
++        self.dump_current_time(&mut out, simulation);
+ 
+         if self.density_map_enabled {
+             if self.ticks_without_density == 0 {
+-                self.write_u8(&mut out, 1_u8);
+                 self.dump_density_map(&mut out, &simulation.scene.get_density_map());
+                 self.ticks_without_density = (1_f64 / simulation.time.tick).ceil() as u32;
+             } else {
+-                self.write_u8(&mut out, 0_u8);
+                 self.ticks_without_density -= 1;
+             }
+         }
+@@ -61,17 +62,40 @@ impl Output {
+         self.dump_people_location(&mut out, &simulation.scene.people);
+     }
+ 
+-    fn dump_people_location(&self, out: &mut Write, people: &Vec<Person>) {
+-        // debug!("People {}", people.len());
++    pub fn dump_statistics(&mut self, simulation: &Simulation) {
++        let mut out = ::std::io::stdout();
++        let current_time = simulation.time.current_time;
++        self.write_f64(&mut out, current_time);
++
++        self.write_u8(&mut out, STATISTICS_TYPE);
++        let ref statistic_item = simulation.statistics.travel_time;
++        self.write_f64(&mut out, statistic_item.min);
++        self.write_f64(&mut out, statistic_item.max);
++        self.write_u32(&mut out, statistic_item.count);
++        self.write_f64(&mut out, statistic_item.current_avg());
++        self.write_f64(&mut out, statistic_item.current_variance());
++        self.write_f64(&mut out, statistic_item.current_std_deviation());
++    }
++
++    fn dump_current_time(&mut self, mut out: &mut Write, simulation: &Simulation) {
++        let current_time = simulation.time.current_time;
++        self.write_u8(&mut out, CURRENT_TIME_TYPE);
++        self.write_f64(&mut out, current_time);
++    }
++
++    fn dump_people_location(&self, mut out: &mut Write, people: &Vec<Person>) {
++        self.write_u8(&mut out, LOCATIONS_TYPE);
+         self.write_u32(out, people.len() as u32);
+         for person in people.iter() {
+             self.write_u16(out, person.coordinates.x.round() as u16);
+             self.write_u16(out, person.coordinates.y.round() as u16);
+             self.write_f64(out, person.heading);
++            self.write_f64(out, person.panic_level);
+         }
+     }
+ 
+-    fn dump_density_map(&self, out: &mut Write, density_map: &Vec<Vec<f64>>) {
++    fn dump_density_map(&self, mut out: &mut Write, density_map: &Vec<Vec<f64>>) {
++        self.write_u8(&mut out, DENSITY_MAP_TYPE);
+         let mut values_to_write = Vec::new();
+         for i in 0..density_map.len() {
+             for j in 0..density_map[i].len() {
+diff --git a/core/src/simulation/forces/fluctuation.rs b/core/src/simulation/forces/fluctuation.rs
+index 62f4228..d15116e 100644
+--- a/core/src/simulation/forces/fluctuation.rs
++++ b/core/src/simulation/forces/fluctuation.rs
+@@ -1,3 +1,5 @@
++use std::collections::HashMap;
++
+ use ::simulation::forces::Forceable;
+ 
+ use ::simulation::person::Person;
+@@ -6,14 +8,74 @@ use ::simulation::scene::Scene;
+ use ::utils::linelg::Vector;
+ 
+ #[derive(Debug)]
+-pub struct FluctuationForce;
++struct Fluctuation {
++    pub force: Vector,
++    pub ticks_left: u32,
++}
++
++impl Fluctuation {
++    pub fn new(person: &Person) -> Fluctuation {
++        const MAX_POWER: f64 = 1_f64;
++        const MAX_DURATION: u32 = 5_u32;
+ 
+-impl Forceable for FluctuationForce {
+-    fn force_for_person(&self, _person: &Person, _scene: &Scene) -> Vector {
+         let direction = Vector::new(::utils::distributions::generate_uniform(0.0, 1.0),
+                                     ::utils::distributions::generate_uniform(0.0, 1.0));
+-        let power = ::utils::distributions::generate_uniform(0.0, 0.1);
++        let power = ::utils::distributions::generate_uniform(0.0, MAX_POWER) * person.panic_level;
+         let force = direction.normalized() * power;
++
++        let mut duration = (::utils::distributions::generate_uniform(0.0, MAX_DURATION as f64) * person.panic_level * 20.0).round() as u32;
++        duration = ::std::cmp::max(duration, 1);
++
++        Fluctuation{
++            force: force,
++            ticks_left: duration,
++        }
++    }
++}
++
++#[derive(Debug)]
++pub struct FluctuationForce {
++    active_fluctuations: HashMap<u64, Fluctuation>
++}
++
++impl FluctuationForce {
++    pub fn new() -> FluctuationForce {
++        FluctuationForce{active_fluctuations: HashMap::new()}
++    }
++}
++
++impl Forceable for FluctuationForce {
++    fn force_for_person(&mut self, person: &Person, _scene: &Scene) -> Vector {
++        const MAX_EMERGE_PROBABILITY: f64 = 0.005_f64;
++
++        let (mut force, create_new_fluctuation, remove_fluctuation) = match self.active_fluctuations.get_mut(&person.id) {
++            Some(fluctuation) => {
++                fluctuation.ticks_left -= 1;
++                (fluctuation.force.clone(), false, fluctuation.ticks_left == 0)
++            }
++            None => {
++                if ::utils::distributions::generate_uniform(0.0, 1.0) < person.panic_level * MAX_EMERGE_PROBABILITY {
++                    (Vector::zero(), true, false)
++                } else {
++                    (Vector::zero(), false, false)
++                }
++            }
++        };
++
++        if create_new_fluctuation {
++            let fluctuation = Fluctuation::new(person);
++            force = fluctuation.force.clone();
++            self.active_fluctuations.insert(person.id, fluctuation);
++        };
++
++        if remove_fluctuation {
++            match self.active_fluctuations.remove(&person.id) {
++                Some(_fluctuation) => {}
++                None => panic!("Trying to remove fluctuation, but it's not there!")
++            }
++        };
++
++
+         force
+     }
+ }
+diff --git a/core/src/simulation/forces/herding.rs b/core/src/simulation/forces/herding.rs
+new file mode 100644
+index 0000000..ed2f087
+--- /dev/null
++++ b/core/src/simulation/forces/herding.rs
+@@ -0,0 +1,35 @@
++use ::simulation::forces::Forceable;
++
++use ::simulation::person::Person;
++use ::simulation::scene::Scene;
++
++use ::utils::linelg::Vector;
++
++#[derive(Debug)]
++pub struct HerdingForce;
++
++impl Forceable for HerdingForce {
++    fn force_for_person(&mut self, person: &Person, scene: &Scene) -> Vector {
++        const HERDING_FOV_DISTANCE: f64 = 3f64;
++
++        let mut force = Vector::zero();
++        let mut n = 0;
++
++        if person.panic_level != 0_f64 {
++            for other_person in scene.people.iter() {
++                if (person.coordinates - other_person.coordinates).length() * scene.scale < HERDING_FOV_DISTANCE {
++                    force = force + Vector::new(other_person.heading.cos(), other_person.heading.sin()) * other_person.forces_params.target_speed;
++
++                    n += 1;
++                }
++            }
++        }
++
++        if n != 0 {
++            force = force / (n as f64);
++        }
++
++        force = force * person.panic_level * person.forces_params.herding;
++        force
++    }
++}
+diff --git a/core/src/simulation/forces/mod.rs b/core/src/simulation/forces/mod.rs
+index 80c6678..579e2c1 100644
+--- a/core/src/simulation/forces/mod.rs
++++ b/core/src/simulation/forces/mod.rs
+@@ -3,12 +3,14 @@ extern crate anymap;
+ mod repulsion;
+ mod target;
+ mod fluctuation;
++mod herding;
+ 
+ use self::anymap::AnyMap;
+ 
+ use self::repulsion::RepulsionForce;
+ use self::target::TargetForce;
+ use self::fluctuation::FluctuationForce;
++use self::herding::HerdingForce;
+ 
+ use ::simulation::person::Person;
+ use ::simulation::scene::Scene;
+@@ -17,7 +19,7 @@ use ::configuration::DistributionValue;
+ use ::utils::linelg::Vector;
+ 
+ pub trait Forceable {
+-    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector;
++    fn force_for_person(&mut self, person: &Person, scene: &Scene) -> Vector;
+ }
+ 
+ pub struct Forces {
+@@ -34,21 +36,24 @@ pub struct PersonForcesParams {
+     pub repulsion_coeff: f64,
+     pub forward_fov: f64,
+     pub backward_fov: f64,
++    pub herding: f64,
+ }
+ 
+ #[derive(Debug)]
+ pub enum Force {
+     Target(TargetForce),
+     Repulsion(RepulsionForce),
+-    Fluctuation(FluctuationForce)
++    Fluctuation(FluctuationForce),
++    Herding(HerdingForce),
+ }
+ 
+ impl Forceable for Force {
+-    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
++    fn force_for_person(&mut self, person: &Person, scene: &Scene) -> Vector {
+         match self {
+-            &Force::Target(ref force) => force.force_for_person(person, scene),
+-            &Force::Repulsion(ref force) => force.force_for_person(person, scene),
+-            &Force::Fluctuation(ref force) => force.force_for_person(person, scene)
++            &mut Force::Target(ref mut force) => force.force_for_person(person, scene),
++            &mut Force::Repulsion(ref mut force) => force.force_for_person(person, scene),
++            &mut Force::Fluctuation(ref mut force) => force.force_for_person(person, scene),
++            &mut Force::Herding(ref mut force) => force.force_for_person(person, scene),
+         }
+     }
+ }
+@@ -64,17 +69,23 @@ impl Forces {
+         let used_forces = vec![
+             Force::Target(TargetForce),
+             Force::Repulsion(RepulsionForce),
+-            Force::Fluctuation(FluctuationForce),
++            Force::Fluctuation(FluctuationForce::new()),
++            Force::Herding(HerdingForce),
+         ];
+         Forces{ used_forces: used_forces, target_speed: target_speed, repulsion_coeff: repulsion_coeff,
+                 forward_fov: forward_fov, backward_fov: backward_fov }
+     }
+ 
+-    pub fn total_force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
++    pub fn total_force_for_person(&mut self, person: &Person, scene: &Scene) -> Vector {
+         let mut total_force = Vector::zero();
+-        for force in self.used_forces.iter() {
++        for force in self.used_forces.iter_mut() {
+             total_force = total_force + force.force_for_person(person, scene);
+         }
++
++        let force_power = total_force.length().min(person.forces_params.target_speed * 1.2);
++        if force_power != 0_f64 {
++            total_force = total_force.normalized() * force_power;
++        }
+         total_force
+     }
+ 
+@@ -84,11 +95,13 @@ impl Forces {
+             repulsion_coeff: ::utils::distributions::generate(&self.repulsion_coeff),
+             forward_fov: ::utils::distributions::generate(&self.forward_fov),
+             backward_fov: ::utils::distributions::generate(&self.backward_fov),
++            herding: ::utils::distributions::generate_normal(0.2, 0.3),
+         };
+         res.target_speed = res.target_speed.max(0.1);
+         res.repulsion_coeff = res.repulsion_coeff.max(0.01);
+         res.forward_fov = res.forward_fov.max(0.01);
+         res.backward_fov = res.backward_fov.max(0.01);
++        res.herding = res.herding.max(0.05);
+         res
+     }
+ }
+diff --git a/core/src/simulation/forces/repulsion.rs b/core/src/simulation/forces/repulsion.rs
+index 0b09f0b..65bae49 100644
+--- a/core/src/simulation/forces/repulsion.rs
++++ b/core/src/simulation/forces/repulsion.rs
+@@ -13,22 +13,79 @@ use ::utils::linelg::Point;
+ pub struct RepulsionForce;
+ 
+ impl RepulsionForce {
+-    fn repulsion_from_obstacle<T: Debug>(&self, person: &Person, obstacle: &T, scene_scale: f64) -> Vector where Point: DistanceTo<T> {
+-        // some magic numbers
+-        const DISTANCE_SQR_THRESHOLD: f64 = 125_f64;
+-        const REPULSION_ELLIPSE_R_X: f64 = 1.0_f64;
+-        const REPULSION_ELLIPSE_R_Y: f64 = 2.0_f64;
+-
+-        let nearest_point = person.coordinates.nearest_point(obstacle);
+-        let direction = nearest_point - person.coordinates;
+-        let direction_length_sqr_in_meters = direction.length_sqr() * scene_scale;
+-        if direction_length_sqr_in_meters < DISTANCE_SQR_THRESHOLD && direction.length_sqr() != 0.0 {
+-            let angle = direction.y.atan2(direction.x);
+-            let ellipse_coeff = ::utils::linelg::ellipse_sqr_radius_at_angle(REPULSION_ELLIPSE_R_X, REPULSION_ELLIPSE_R_Y, angle);
+-            // let distance_coeff = 1_f64 / ((direction_length_sqr_in_meters.sqrt() - ::simulation::scene::APPROX_PERSON_RADIUS) * 5_f64);
+-            let distance_coeff = (- 1_f64 / 2.5_f64 * (direction_length_sqr_in_meters.sqrt() - ::simulation::scene::APPROX_PERSON_RADIUS) + 3_f64).max(0_f64).min(3_f64);
+-            let fov_coeff = person.fov_coeff(nearest_point);
+-            - direction.normalized() * distance_coeff * fov_coeff * ellipse_coeff.sqrt()
++    fn repulsion_from_obstacle<T: Debug>(&self, person: &Person, obstacle: &T, panic_coeff: f64, scene_scale: f64) -> Vector where Point: DistanceTo<T> {
++        const DISTANCE_THRESHOLD: f64 = 5_f64;
++
++        const ANISOTROPIC_K: f64 = 0.2_f64;
++        const REPULSION_DISTANCE: f64 = 0.2_f64;
++        const REPULSION_AT_ZERO: f64 = 0.9_f64;
++
++        let repulsion_point = person.coordinates.nearest_point(obstacle);
++        let direction = repulsion_point - person.coordinates;
++        let distance = direction.length() * scene_scale;
++        if distance < DISTANCE_THRESHOLD && direction.length_sqr() != 0.0 {
++            let distance_coeff = REPULSION_AT_ZERO * ((::simulation::scene::APPROX_PERSON_RADIUS - distance) / REPULSION_DISTANCE).exp();
++
++            let heading_vector = Vector::new(person.heading.cos(), person.heading.sin());
++            let cos_phi = direction.normalized().dot_product(&heading_vector);
++            let anisotropic_coeff = ANISOTROPIC_K + (1_f64 - ANISOTROPIC_K) * (1_f64 + cos_phi) / 2_f64;
++
++            let fov_coeff = person.fov_coeff(repulsion_point);
++            - direction.normalized() * distance_coeff * anisotropic_coeff * panic_coeff
++        } else {
++            Vector::zero()
++        }
++    }
++
++    fn geom_physical_repulsion<T: Debug>(&self, person: &Person, obstacle: &T, scene_scale: f64) -> Vector where Point: DistanceTo<T> {
++        const K_PHYS: f64 = 5_f64;
++
++        let repulsion_point = person.coordinates.nearest_point(obstacle);
++        let direction = repulsion_point - person.coordinates;
++        let distance = direction.length() * scene_scale;
++        if distance < ::simulation::scene::APPROX_PERSON_RADIUS {
++            let distance_coeff = ::simulation::scene::APPROX_PERSON_RADIUS - distance;
++
++            let phys_repulsion = - direction.normalized() * K_PHYS * distance_coeff;
++
++            // let v = Vector::new(person.heading.cos(), person.heading.sin()) * person.forces_params.target_speed;
++            // let normal = - direction.normalized();
++            // let tangent_direction = Vector::new(-normal.y, normal.x);
++            // let tangent_coeff = v.dot_product(&tangent_direction);
++            // let tangent_repulsion = tangent_direction * K_TANGENT * distance_coeff * tangent_coeff;
++
++            let force = phys_repulsion;
++            // debug!("Physical repulsion for person #{} {:?} (from person #{} {:?}): {:?}", person.id, person.coordinates, other_person.id, other_person.coordinates, force);
++            // ; Vector::zero()
++            force
++        } else {
++            Vector::zero()
++        }
++    }
++
++    fn person_physical_repulsion(&self, person: &Person, other_person: &Person, scene_scale: f64) -> Vector {
++        const K_PHYS: f64 = 5_f64;
++        const K_TANGENT: f64 = 5_f64;
++
++        let repulsion_point = person.coordinates.nearest_point(&other_person.coordinates);
++        let direction = repulsion_point - person.coordinates;
++        let distance = direction.length() * scene_scale;
++        if distance < 2_f64 * ::simulation::scene::APPROX_PERSON_RADIUS {
++            let distance_coeff = 2_f64 * ::simulation::scene::APPROX_PERSON_RADIUS - distance;
++
++            let phys_repulsion = - direction.normalized() * K_PHYS * distance_coeff;
++
++            let v = Vector::new(person.heading.cos(), person.heading.sin()) * person.forces_params.target_speed;
++            let other_v = Vector::new(other_person.heading.cos(), other_person.heading.sin()) * other_person.forces_params.target_speed;
++            let normal = - direction.normalized();
++            let tangent_direction = Vector::new(-normal.y, normal.x);
++            let tangent_coeff = (other_v - v).dot_product(&tangent_direction);
++            let tangent_repulsion = tangent_direction * K_TANGENT * distance_coeff * tangent_coeff;
++
++            let force = tangent_repulsion + phys_repulsion;
++            // debug!("Physical repulsion for person #{} {:?} (from person #{} {:?}): {:?}", person.id, person.coordinates, other_person.id, other_person.coordinates, force);
++            // ; Vector::zero()
++            force
+         } else {
+             Vector::zero()
+         }
+@@ -37,16 +94,20 @@ impl RepulsionForce {
+ }
+ 
+ impl Forceable for RepulsionForce {
+-    fn force_for_person(&self, person: &Person, scene: &Scene) -> Vector {
++    fn force_for_person(&mut self, person: &Person, scene: &Scene) -> Vector {
+         let repulsion_coeff = person.forces_params.repulsion_coeff;
+         let mut force = Vector::zero();
+         for obstacle in scene.geometry.iter() {
+-            force = force + 2_f64 * self.repulsion_from_obstacle(&person, obstacle, scene.scale);
++            force = force + self.repulsion_from_obstacle(&person, obstacle, 1.0_f64, scene.scale);
++            force = force + self.geom_physical_repulsion(&person, obstacle, scene.scale);
+         }
+         for other_person in scene.people.iter() {
+-            force = force + self.repulsion_from_obstacle(&person, &other_person.coordinates, scene.scale);
++            if other_person.id != person.id {
++                force = force + self.repulsion_from_obstacle(&person, &other_person.coordinates, 1.0_f64 - person.panic_level, scene.scale);
++                force = force + self.person_physical_repulsion(&person, &other_person, scene.scale);
++            }
+         }
+-        let force_power = force.length().min(4_f64);
++        let force_power = force.length().min(person.forces_params.target_speed * 2_f64);
+         if force_power != 0_f64 {
+             force = force.normalized() * force_power;
+         }
+diff --git a/core/src/simulation/forces/target.rs b/core/src/simulation/forces/target.rs
+index 02cc610..23996a4 100644
+--- a/core/src/simulation/forces/target.rs
++++ b/core/src/simulation/forces/target.rs
+@@ -9,9 +9,9 @@ use ::utils::linelg::Vector;
+ pub struct TargetForce;
+ 
+ impl Forceable for TargetForce {
+-    fn force_for_person(&self, person: &Person, _scene: &Scene) -> Vector {
++    fn force_for_person(&mut self, person: &Person, _scene: &Scene) -> Vector {
+         let target_speed = person.forces_params.target_speed;
+-        let direction = person.current_target_point - person.coordinates;
++        let direction = person.current_target_point() - person.coordinates;
+         let force = direction.normalized() * target_speed;
+         force
+     }
+diff --git a/core/src/simulation/mod.rs b/core/src/simulation/mod.rs
+index 00659ba..7fcd462 100644
+--- a/core/src/simulation/mod.rs
++++ b/core/src/simulation/mod.rs
+@@ -5,28 +5,35 @@ pub mod person;
+ pub mod scene;
+ mod forces;
+ mod time;
++mod statistics;
+ 
+ use self::anymap::AnyMap;
+ 
+ use self::forces::Forces;
+ use self::scene::Scene;
+ use self::time::Time;
++use self::statistics::Statistics;
+ 
+ use ::output::Output;
++use ::configuration::SimType;
+ 
+ pub struct Simulation {
+     configuration: AnyMap,
++    sim_type: SimType,
+     forces: Forces,
++    pub statistics: Statistics,
+     pub scene: Scene,
+     pub time: Time,
+ }
+ 
+ impl Simulation {
+     pub fn new(configuration: AnyMap) -> Simulation {
++        let sim_type = config!(configuration, SimTypeCfgWrap);
+         let time = Time::new(&configuration);
+         let forces = Forces::new(&configuration);
+         let scene = Scene::new(&configuration);
+-        Simulation{ configuration: configuration, forces: forces, scene: scene, time: time }
++        let statistics = Statistics::new(&configuration);
++        Simulation{ sim_type: sim_type, configuration: configuration, statistics: statistics, forces: forces, scene: scene, time: time }
+     }
+ 
+     pub fn main_loop(&mut self) {
+@@ -34,21 +41,55 @@ impl Simulation {
+         let mut output = Output::new(&self.configuration);
+         debug!("Sending init message to output");
+         output.send_init();
+-        let mut avg_tick : f64 = 0.0_f64;
+-        while !self.time.is_passed() {
++
++        match self.sim_type {
++            SimType::Escape => {
++                info!("Simulation is in Escape mode, doing initial spawn ...");
++                self.scene.spawn_people(&self.forces, self.time.tick);
++                debug!("Spawned {} people", self.scene.people.len());
++            },
++            _ => ()
++        }
++
++        let mut sum_running_time : f64 = 0.0_f64;
++
++        while !self.is_simulation_finished() {
+             let t1 = system_time::precise_time_ns();
+             self.update_state();
+             output.dump_state(self);
+             self.time.next_tick();
+             let t2 = system_time::precise_time_ns();
+-            avg_tick += (t2 - t1) as f64;
++            sum_running_time += (t2 - t1) as f64;
+         }
+-        avg_tick = avg_tick / self.time.end_time * self.time.tick;
++
++        output.dump_statistics(self);
++        let avg_tick = sum_running_time / self.time.current_time * self.time.tick;
+         info!("Avg tick took {} ns", avg_tick.round());
+         info!("Simulation done.");
+     }
+ 
++    fn is_simulation_finished(&self) -> bool {
++        return match self.sim_type {
++            SimType::Flow => self.time.is_passed(),
++            SimType::Escape => self.scene.people.len() == 0
++        }
++    }
++
++
++
+     fn update_state(&mut self) {
++        self.calculate_forces_and_move();
++        self.calculate_panic_level();
++
++        match self.sim_type {
++            SimType::Escape => (),
++            _ => self.scene.spawn_people(&self.forces, self.time.tick)
++        }
++        let reached_destination_people = self.scene.process_reached_destination_people();
++        self.statistics.update_from_reached_destination_people(reached_destination_people, self.time.current_time);
++    }
++
++    fn calculate_forces_and_move(&mut self) {
+         let mut total_forces_for_person = Vec::new();
+         total_forces_for_person.reserve(self.scene.people.len());
+         for person in self.scene.people.iter() {
+@@ -62,9 +103,54 @@ impl Simulation {
+             }
+             person.move_by(*total_force, self.time.tick);
+         }
++    }
++
++    fn calculate_panic_level(&mut self) {
++        const K_INITIAL_PANIC: f64 = 1.0_f64;
++        const K_SPREAD_PANIC: f64 = 1.0_f64;
++        const K_DECAY_PANIC: f64 = 0.01_f64;
++        const PANIC_FOV_DISTANCE: f64 = 4f64;
++
++        let mut panic_levels = Vec::new();
++        panic_levels.reserve(self.scene.people.len());
++        for person in self.scene.people.iter() {
++            let mut panic_from_sources = 0_f64;
++            let mut n = 0;
++            for panic_source in self.scene.panic_sources.iter() {
++                if (panic_source.coordinates - person.coordinates).length() < panic_source.radius {
++                    panic_from_sources += panic_source.power;
++                    n += 1;
++                }
++            }
++            if n != 0 {
++                panic_from_sources = K_INITIAL_PANIC * panic_from_sources / (n as f64);
++            }
+ 
+-        self.scene.spawn_people(&self.forces, self.time.tick);
+-        self.scene.process_reached_destination_people();
++            let mut panic_from_herding = 0_f64;
++            n = 0;
++            for other_person in self.scene.people.iter() {
++                if (person.coordinates - other_person.coordinates).length() * self.scene.scale < PANIC_FOV_DISTANCE {
++                    panic_from_herding += other_person.panic_level;
++                    n += 1;
++                }
++            }
++            if n != 0 {
++                panic_from_herding = K_SPREAD_PANIC * panic_from_herding / (n as f64);
++            }
++
++            let desired_panic_level = (panic_from_sources + panic_from_herding).max(0_f64).min(1_f64);
++
++            let new_panic_level = if desired_panic_level >= person.panic_level {
++                desired_panic_level
++            } else {
++                person.panic_level - K_DECAY_PANIC * (person.panic_level - desired_panic_level)
++            };
++            panic_levels.push(new_panic_level);
++        };
++
++        for (person, panic_level) in self.scene.people.iter_mut().zip(panic_levels.iter()) {
++            person.panic_level = *panic_level;
++        }
+     }
+ }
+ 
+diff --git a/core/src/simulation/person.rs b/core/src/simulation/person.rs
+index ffc46e2..0ce1921 100644
+--- a/core/src/simulation/person.rs
++++ b/core/src/simulation/person.rs
+@@ -3,33 +3,33 @@ use ::utils::linelg::Point;
+ 
+ use ::simulation::forces::PersonForcesParams;
+ use ::simulation::scene::Path;
++use ::simulation::scene::Area;
+ 
+ #[derive(Debug,Clone)]
+ pub struct Person {
++    pub id: u64,
+     pub coordinates: Point,
+     pub heading: f64,
+     pub path_id: u8,
+-    pub current_target_point: Point,
++    pub current_target_area: Area,
+     pub current_target_index: u16,
++    pub panic_level: f64,
+     pub forces_params: PersonForcesParams,
+ }
+ 
+ impl Person {
+     #[allow(non_snake_case)]
+     pub fn move_by(&mut self, total_force: Vector, t: f64) {
+-        let INSTANT_HEADING_CHANGE_THRESHOLD: f64 = 10_f64.to_radians();
++        let MAX_HEADING_DIFF_TO_TARGET: f64 = 180_f64.to_radians();
++        let INSTANT_HEADING_CHANGE_THRESHOLD: f64 = 45_f64.to_radians();
+         let TURN_RATE: f64 = 10_f64.to_radians();
+ 
+-        let mut new_heading = total_force.y.atan2(total_force.x);
+-        if new_heading < 0_f64 {
+-            new_heading += 2_f64 * ::std::f64::consts::PI;
+-        }
+-        let mut heading_change = new_heading - self.heading;
+-        if heading_change > ::std::f64::consts::PI {
+-            heading_change = - 2_f64 * ::std::f64::consts::PI + heading_change;
+-        } else if heading_change < - ::std::f64::consts::PI {
+-            heading_change = 2_f64 * ::std::f64::consts::PI + heading_change;
+-        }
++        let target_vector = self.current_target_point() - self.coordinates;
++        let target_heading = ::utils::headings::vector_heading(target_vector);
++
++        let mut new_heading = ::utils::headings::vector_heading(total_force);
++        let heading_change = ::utils::headings::heading_diff(new_heading, self.heading);
++
+         let adjusted_total_force = if heading_change.abs() > INSTANT_HEADING_CHANGE_THRESHOLD {
+             new_heading = if heading_change > 0_f64 {
+                 self.heading + TURN_RATE
+@@ -39,10 +39,16 @@ impl Person {
+             if new_heading < 0_f64 {
+                 new_heading += 2_f64 * ::std::f64::consts::PI;
+             }
+-            Vector::new(
+-                new_heading.cos(),
+-                new_heading.sin()
+-            ) * total_force.length().min(4_f64)
++
++            let mut weaken_coeff = (heading_change.abs() - INSTANT_HEADING_CHANGE_THRESHOLD).cos();
++            let heading_diff_to_target = ::utils::headings::heading_diff(target_heading, new_heading);
++            if heading_diff_to_target.abs() > MAX_HEADING_DIFF_TO_TARGET {
++                // cap max rotation at MAX_HEADING_DIFF_TO_TARGET
++                new_heading = heading_diff_to_target.signum() * MAX_HEADING_DIFF_TO_TARGET;
++                let chop_diff = heading_diff_to_target.abs() - MAX_HEADING_DIFF_TO_TARGET;
++                weaken_coeff = weaken_coeff * chop_diff.cos() / 1000_f64;
++            }
++            Vector::new(new_heading.cos(), new_heading.sin()) * (total_force.length() * weaken_coeff).min(4_f64)
+         } else {
+             total_force
+         };
+@@ -50,15 +56,20 @@ impl Person {
+         self.heading = new_heading;
+     }
+ 
++    pub fn current_target_point(&self) -> Point {
++        self.current_target_area.nearest_point(&self.coordinates)
++    }
++
+     pub fn fov_coeff(&self, source: Point) -> f64 {
+         const SIDE_FOV: f64 = 2_f64;
+ 
+         let direction = source - self.coordinates;
+-        let angle = direction.y.atan2(direction.x);
+-        let ellipse_coeff = if angle > 0_f64 {
+-            ::utils::linelg::ellipse_sqr_radius_at_angle(SIDE_FOV, self.forces_params.forward_fov, angle).sqrt()
++        let source_heading = ::utils::headings::vector_heading(direction);
++        let heading_diff = ::utils::headings::heading_diff(source_heading, self.heading);
++        let ellipse_coeff = if heading_diff.abs() < ::std::f64::consts::PI / 2_f64 {
++            ::utils::linelg::ellipse_sqr_radius_at_angle(SIDE_FOV, self.forces_params.forward_fov, heading_diff).sqrt()
+         } else {
+-            ::utils::linelg::ellipse_sqr_radius_at_angle(SIDE_FOV, self.forces_params.backward_fov, -angle).sqrt()
++            ::utils::linelg::ellipse_sqr_radius_at_angle(SIDE_FOV, self.forces_params.backward_fov, heading_diff).sqrt()
+         };
+         let normalization_coeff = SIDE_FOV.max(self.forces_params.forward_fov).max(self.forces_params.backward_fov);
+         let fov_coeff = ellipse_coeff / normalization_coeff / 2_f64;
+@@ -67,7 +78,8 @@ impl Person {
+ 
+     pub fn reached_destination(&self, path: &Path) -> bool {
+         let target = &path.target_areas[self.current_target_index as usize];
+-        self.coordinates.x > target.p0.x && self.coordinates.x < target.p1.x &&
+-            self.coordinates.y > target.p0.y && self.coordinates.y < target.p1.y
++        let person_radius = ::simulation::scene::APPROX_PERSON_RADIUS;
++        self.coordinates.x + person_radius > target.p0.x && self.coordinates.x - person_radius < target.p1.x &&
++            self.coordinates.y + person_radius > target.p0.y && self.coordinates.y - person_radius < target.p1.y
+     }
+ }
+diff --git a/core/src/simulation/scene.rs b/core/src/simulation/scene.rs
+index 9910b0b..2780f6c 100644
+--- a/core/src/simulation/scene.rs
++++ b/core/src/simulation/scene.rs
+@@ -7,18 +7,27 @@ use ::simulation::forces::Forces;
+ 
+ use ::utils::linelg::Line;
+ use ::utils::linelg::Point;
++use ::utils::linelg::Rectangle;
+ use ::utils::linelg::distance::DistanceTo; 
+-pub const APPROX_PERSON_RADIUS: f64 = 0.5_f64;
++pub const APPROX_PERSON_RADIUS: f64 = 0.3_f64;
+ 
+ pub struct Scene {
+     pub people: Vec<Person>,
++    pub last_person_id: u64,
+     pub geometry: Vec<Line>,
++    pub panic_sources: Vec<PanicSource>,
+     paths: Vec<Path>,
+     pub scale: f64,
+     pub width: u16,
+     pub height: u16,
+ }
+ 
++pub struct PanicSource {
++    pub coordinates: Point,
++    pub radius: f64,
++    pub power: f64,
++}
++
+ pub struct Path {
+     pub id: u8,
+     spawn_area: SpawnArea,
+@@ -31,18 +40,32 @@ struct SpawnArea {
+     ticks_to_next_spawn: u16,
+ }
+ 
++#[derive(Debug,Clone)]
+ pub struct Area {
+     pub p0: Point, pub p1: Point,
+     pub sequence_no: u8,
++    rectangle: Rectangle,
+ }
+ 
+ impl Area {
++    fn new(p0: Point, p1: Point, sequence_no: u8) -> Area {
++        let rectangle = Rectangle::new_from_raw(
++            p0.x, p0.y, p1.x, p1.y,
++        );
++        Area{p0: p0, p1: p1, sequence_no: sequence_no, rectangle: rectangle}
++    }
++
++    pub fn nearest_point(&self, other: &Point) -> Point {
++        other.nearest_point(&self.rectangle)
++    }
++
+     fn random_inside(&self) -> Point {
+         Point::new(
+             ::utils::distributions::generate_uniform(self.p0.x, self.p1.x),
+             ::utils::distributions::generate_uniform(self.p0.y, self.p1.y)
+         )
+     }
++
+ }
+ 
+ impl Scene {
+@@ -52,15 +75,25 @@ impl Scene {
+         let scene_scale = config!(configuration, SceneScale);
+ 
+         let scene_walls = config!(configuration, SceneWalls);
++        let scene_panic_sources = config!(configuration, ScenePanicSources);
+         let scene_spawn_areas = config!(configuration, SceneSpawnAreas);
+         let scene_target_areas = config!(configuration, SceneTargetAreas);
+         let spawn_rate = config!(configuration, SpawnRate);
+ 
+         let parsed_geometry = Scene::parse_walls(scene_walls);
++        let parsed_panic_sources = Scene::parse_panic_sources(scene_panic_sources);
+         let parsed_paths = Scene::parse_paths(scene_spawn_areas, scene_target_areas, spawn_rate);
+ 
+-        Scene{ people: Vec::new(), geometry: parsed_geometry, paths: parsed_paths,
+-               scale: scene_scale, width: scene_width, height: scene_height }
++        Scene{ people: Vec::new(), last_person_id: 0, geometry: parsed_geometry, panic_sources: parsed_panic_sources,
++               paths: parsed_paths, scale: scene_scale, width: scene_width, height: scene_height }
++    }
++
++    fn parse_panic_sources(scene_panic_sources: Vec<::configuration::ScenePanicSource>) -> Vec<PanicSource> {
++        let mut panic_sources = Vec::new();
++        for ps in scene_panic_sources.iter() {
++            panic_sources.push(PanicSource{coordinates: Point::new(ps.x as f64, ps.y as f64), radius: ps.r as f64, power: ps.power})
++        }
++        panic_sources
+     }
+ 
+     fn parse_walls(walls: Vec<::configuration::SceneWall>) -> Vec<Line> {
+@@ -75,18 +108,23 @@ impl Scene {
+         let mut paths = Vec::new();
+         for scene_spawn_area in spawn_areas.iter() {
+             let id = scene_spawn_area.id;
+-            let spawn_area = SpawnArea{ area: Area{p0: Point::new(scene_spawn_area.x0 as f64, scene_spawn_area.y0 as f64),
+-                                                   p1: Point::new(scene_spawn_area.x1 as f64, scene_spawn_area.y1 as f64),
+-                                                   sequence_no: 0 },
++            let area = Area::new(
++                Point::new(scene_spawn_area.x0 as f64, scene_spawn_area.y0 as f64),
++                Point::new(scene_spawn_area.x1 as f64, scene_spawn_area.y1 as f64),
++                0
++            );
++            let spawn_area = SpawnArea{ area: area,
+                                         rate: spawn_rate,
+                                         ticks_to_next_spawn: 1 };
+ 
+             let mut parsed_target_areas : Vec<Area> = Vec::new();
+             for scene_target_area in target_areas.iter() {
+                 if scene_target_area.id == scene_spawn_area.id {
+-                    let target_area = Area{ p0: Point::new(scene_target_area.x0 as f64, scene_target_area.y0 as f64),
+-                                            p1: Point::new(scene_target_area.x1 as f64, scene_target_area.y1 as f64),
+-                                            sequence_no: scene_target_area.sequence_no };
++                    let target_area = Area::new(
++                        Point::new(scene_target_area.x0 as f64, scene_target_area.y0 as f64),
++                        Point::new(scene_target_area.x1 as f64, scene_target_area.y1 as f64),
++                        scene_target_area.sequence_no
++                    );
+                     parsed_target_areas.push(target_area)
+                 }
+             }
+@@ -120,10 +158,7 @@ impl Scene {
+ 
+         let mut coordinates: Option<Point> = None;
+         for _i in 1..10 {
+-            let try_point = Point::new(
+-                ::utils::distributions::generate_uniform(path.spawn_area.area.p0.x, path.spawn_area.area.p1.x),
+-                ::utils::distributions::generate_uniform(path.spawn_area.area.p0.y, path.spawn_area.area.p1.y)
+-            );
++            let try_point = path.spawn_area.area.random_inside();
+             if self.is_free(&try_point) {
+                 coordinates = Some(try_point);
+                 break;
+@@ -132,16 +167,20 @@ impl Scene {
+ 
+         match coordinates {
+             Some(point) => {
+-                let current_target_point = path.target_areas[0].random_inside();
+-                let heading = current_target_point - point;
++                let current_target_area = path.target_areas[0].clone();
++                let target = current_target_area.nearest_point(&point);
++                let direction = target - point;
+                 let new_person = Person{
++                    id: self.last_person_id,
+                     coordinates: point.clone(),
+-                    heading: heading.y.atan2(heading.x),
++                    heading: ::utils::headings::vector_heading(direction),
+                     path_id: path.id,
+                     current_target_index: 0,
+-                    current_target_point: current_target_point,
++                    current_target_area: current_target_area,
++                    panic_level: 0.0_f64,
+                     forces_params: forces.generate_person_forces_param()
+                 };
++                self.last_person_id += 1;
+                 self.people.push(new_person);
+             },
+             None => warn!("Couldn't find a place for a new person in 10 attempts, skipping ...")
+@@ -159,18 +198,20 @@ impl Scene {
+         free
+     }
+ 
+-    pub fn process_reached_destination_people(&mut self) {
++    pub fn process_reached_destination_people(&mut self) -> Vec<Person> {
+         let cloned_people = self.people.clone();
++        let mut reached_destination_people = Vec::new();
+         self.people = cloned_people.into_iter().filter_map(|mut person|
+             if person.reached_destination(&self.paths[person.path_id as usize]) {
+                 person.current_target_index += 1;
+                 let ref path = self.paths[person.path_id as usize];
+                 if (person.current_target_index as usize) < path.target_areas.len() {
+-                    person.current_target_point = path.target_areas[person.current_target_index as usize].random_inside();
++                    person.current_target_area = path.target_areas[person.current_target_index as usize].clone();
+                     // person has next target, do not filter him
+                     Some(person)
+                 } else {
+-                    // person reached his final target, filter him out
++                    // person reached his final target, save him for returning & filter out from people
++                    reached_destination_people.push(person);
+                     None
+                 }
+             } else {
+@@ -178,6 +219,8 @@ impl Scene {
+                 Some(person)
+             }
+         ).collect();
++
++        return reached_destination_people;
+     }
+ 
+     pub fn get_density_map(&self) -> Vec<Vec<f64>> {
+diff --git a/core/src/simulation/statistics.rs b/core/src/simulation/statistics.rs
+new file mode 100644
+index 0000000..5139099
+--- /dev/null
++++ b/core/src/simulation/statistics.rs
+@@ -0,0 +1,62 @@
++extern crate anymap;
++
++use std::f64;
++
++use self::anymap::AnyMap;
++use ::simulation::person::Person;
++
++pub struct Statistics {
++    pub travel_time: NumStatisticItem,
++}
++
++pub struct NumStatisticItem {
++    pub min: f64,
++    pub max: f64,
++    pub sum: f64,
++    pub sum_of_squares: f64,
++    pub count: u32,
++}
++
++impl NumStatisticItem {
++    pub fn new() -> NumStatisticItem {
++        return NumStatisticItem{ min: f64::INFINITY, max: -f64::INFINITY,
++                                 sum: 0_f64, sum_of_squares: 0_f64, count: 0 }
++    }
++
++    pub fn update_from_value(&mut self, value: f64) {
++        if value < self.min {
++            self.min = value;
++        }
++        if value > self.max {
++            self.max = value;
++        }
++        self.sum += value;
++        self.sum_of_squares += value * value;
++        self.count += 1;
++    }
++
++    pub fn current_avg(&self) -> f64 {
++        return self.sum / (self.count as f64);
++    }
++
++    pub fn current_variance(&self) -> f64 {
++        let avg = self.current_avg();
++        return self.sum_of_squares / (self.count as f64) - avg * avg;
++    }
++
++    pub fn current_std_deviation(&self) -> f64 {
++        return f64::sqrt(self.current_variance());
++    }
++}
++
++impl Statistics {
++    pub fn new(_configuration: &AnyMap) -> Statistics {
++        Statistics{ travel_time: NumStatisticItem::new() }
++    }
++
++    pub fn update_from_reached_destination_people(&mut self, people: Vec<Person>, current_time: f64) {
++        for _person in people.iter() {
++            self.travel_time.update_from_value(current_time);
++        }
++    }
++}
+diff --git a/core/src/utils/headings.rs b/core/src/utils/headings.rs
+new file mode 100644
+index 0000000..0abb853
+--- /dev/null
++++ b/core/src/utils/headings.rs
+@@ -0,0 +1,19 @@
++use utils::linelg::vector::Vector;
++
++pub fn vector_heading(v: Vector) -> f64 {
++    let mut heading = v.y.atan2(v.x);
++    if heading < 0_f64 {
++        heading += 2_f64 * ::std::f64::consts::PI;
++    }
++    return heading;
++}
++
++pub fn heading_diff(h1: f64, h2: f64) -> f64 {
++    let mut diff = h1 - h2;
++    if diff > ::std::f64::consts::PI {
++        diff = - 2_f64 * ::std::f64::consts::PI + diff;
++    } else if diff < - ::std::f64::consts::PI {
++        diff = 2_f64 * ::std::f64::consts::PI + diff;
++    }
++    return diff;
++}
+diff --git a/core/src/utils/linelg/distance.rs b/core/src/utils/linelg/distance.rs
+index 41cc409..e434f71 100644
+--- a/core/src/utils/linelg/distance.rs
++++ b/core/src/utils/linelg/distance.rs
+@@ -1,5 +1,6 @@
+ use utils::linelg::Point;
+ use utils::linelg::Line;
++use utils::linelg::Rectangle;
+ 
+ pub trait DistanceTo<T> {
+     fn nearest_point(&self, other: &T) -> Point;
+@@ -49,6 +50,43 @@ impl DistanceTo<Line> for Point {
+     }
+ }
+ 
++impl DistanceTo<Rectangle> for Point {
++    fn nearest_point(&self, rectangle: &Rectangle) -> Point {
++        let mut nearest_point: Option<Point> = None;
++        let lines = [
++            Line::new(rectangle.p1, rectangle.p2),
++            Line::new(rectangle.p2, rectangle.p3),
++            Line::new(rectangle.p3, rectangle.p4),
++            Line::new(rectangle.p4, rectangle.p1),
++        ];
++        for line in lines.iter() {
++            let line_nearest_point = self.nearest_point(line);
++            nearest_point = match nearest_point {
++                Some(point) => if self.distance_sqr(&point) <= self.distance_sqr(&line_nearest_point) {
++                    Some(point)
++                } else {
++                    Some(line_nearest_point)
++                },
++                None => Some(line_nearest_point)
++            }
++        }
++        match nearest_point {
++            Some(point) => point,
++            None => panic!("This shouldn't ever be none ...")
++        }
++    }
++
++    fn distance_sqr(&self, rectangle: &Rectangle) -> f64 {
++        let nearest_point = self.nearest_point(rectangle);
++        self.distance_sqr(&nearest_point)
++    }
++
++    fn distance(&self, rectangle: &Rectangle) -> f64 {
++        let nearest_point = self.nearest_point(rectangle);
++        self.distance(&nearest_point)
++    }
++}
++
+ #[test]
+ fn test_distance_points_sqr() {
+     let a = Point::new(0f64, 0f64);
+diff --git a/core/src/utils/linelg/intersection.rs b/core/src/utils/linelg/intersection.rs
+new file mode 100644
+index 0000000..9e1984a
+--- /dev/null
++++ b/core/src/utils/linelg/intersection.rs
+@@ -0,0 +1,16 @@
++use utils::linelg::Line;
++use utils::linelg::Point;
++
++pub fn line_intersection(line1: &Line, line2: &Line) -> Option<Point> {
++    let discr = (line1.from.x - line1.to.x) * (line2.from.y - line2.to.y) -
++                (line1.from.y - line1.to.y) * (line2.from.x - line2.to.x);
++    if discr != 0_f64 {
++        let x = ((line1.from.x * line1.to.y - line1.from.y * line1.to.x) * (line2.from.x - line2.to.x) -
++                 (line2.from.x * line2.to.y - line2.from.y * line2.to.x) * (line1.from.x - line1.to.x)) / discr;
++        let y = ((line1.from.x * line1.to.y - line1.from.y * line1.to.x) * (line2.from.y - line2.to.y) -
++                 (line2.from.x * line2.to.y - line2.from.y * line2.to.x) * (line1.from.y - line1.to.y)) / discr;
++        Some(Point{x: x, y: y})
++    } else {
++        None
++    }
++}
+diff --git a/core/src/utils/linelg/mod.rs b/core/src/utils/linelg/mod.rs
+index 3183232..dd3036b 100644
+--- a/core/src/utils/linelg/mod.rs
++++ b/core/src/utils/linelg/mod.rs
+@@ -5,11 +5,14 @@ use std::ops::Index;
+ pub use self::vector::Vector;
+ pub use self::point::Point;
+ pub use self::line::Line;
++pub use self::rectangle::Rectangle;
+ 
+ pub mod vector;
+ pub mod point;
+ pub mod line;
++pub mod rectangle;
+ pub mod distance;
++pub mod intersection;
+ 
+ static EPS : f64 = 0.00001f64;
+ 
+diff --git a/core/src/utils/linelg/point.rs b/core/src/utils/linelg/point.rs
+index 658f891..cfe87ea 100644
+--- a/core/src/utils/linelg/point.rs
++++ b/core/src/utils/linelg/point.rs
+@@ -1,7 +1,7 @@
+ use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
+ use utils::linelg::Vector;
+ 
+-#[derive(Debug, Copy, Clone, PartialEq)]
++#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+ pub struct Point {
+     pub x: f64,
+     pub y: f64,
+diff --git a/core/src/utils/linelg/rectangle.rs b/core/src/utils/linelg/rectangle.rs
+new file mode 100644
+index 0000000..9845bcf
+--- /dev/null
++++ b/core/src/utils/linelg/rectangle.rs
+@@ -0,0 +1,24 @@
++use std::f64;
++use utils::linelg::Point;
++
++#[derive(Debug, Copy, Clone, PartialEq)]
++pub struct Rectangle {
++    pub p1: Point,
++    pub p2: Point,
++    pub p3: Point,
++    pub p4: Point,
++}
++
++impl Rectangle {
++    pub fn new(p1: Point, p2: Point, p3: Point, p4: Point) -> Rectangle {
++        Rectangle { p1: p1, p2: p2, p3: p3, p4: p4 }
++    }
++
++    pub fn new_from_raw(x0 : f64, y0 : f64, x1 : f64, y1 : f64) -> Rectangle {
++        let p1 = Point{ x: x0, y: y0 };
++        let p2 = Point{ x: x0, y: y1 };
++        let p3 = Point{ x: x1, y: y1 };
++        let p4 = Point{ x: x1, y: y0 };
++        Rectangle::new(p1, p2, p3, p4)
++    }
++}
+diff --git a/core/src/utils/linelg/vector.rs b/core/src/utils/linelg/vector.rs
+index b636c70..e9681e2 100644
+--- a/core/src/utils/linelg/vector.rs
++++ b/core/src/utils/linelg/vector.rs
+@@ -28,6 +28,10 @@ impl Vector {
+         let len = self.length();
+         Vector { x: self.x / len, y: self.y / len }
+     }
++
++    pub fn dot_product(&self, other: &Vector) -> f64 {
++        self.x * other.x + self.y * other.y
++    }
+ }
+ 
+ impl Add for Vector {
+diff --git a/core/src/utils/mod.rs b/core/src/utils/mod.rs
+index 928515c..299ac27 100644
+--- a/core/src/utils/mod.rs
++++ b/core/src/utils/mod.rs
+@@ -1,2 +1,3 @@
+ pub mod linelg;
+ pub mod distributions;
++pub mod headings;
+diff --git a/preprocessor/sections/base.rb b/preprocessor/sections/base.rb
+index 530d026..51cfd14 100644
+--- a/preprocessor/sections/base.rb
++++ b/preprocessor/sections/base.rb
+@@ -5,9 +5,11 @@ module Sections
+     CONFIG_ITEM_TEMPLATE_PREFIX = "CS>"
+ 
+     def self.field(name:, type: nil, klass: nil, parser: nil, default: nil,
+-                   current_section: nil, element: nil, context_defaults: {})
++                   values: [], current_section: nil, element: nil,
++                   context_defaults: {})
+       @fields ||= {}
+-      @fields[name] = {name: name, type: type, klass: klass, parser: parser, default: default,
++      @fields[name] = {name: name, type: type, klass: klass, parser: parser,
++                       default: default, values: values,
+                        current_section: current_section, element: element,
+                        context_defaults: context_defaults}
+       define_method name do |val = nil, &blc|
+@@ -50,6 +52,9 @@ module Sections
+               when :float then value.to_f
+               when :string then value.to_s
+               when :bool then !!value
++              when :enum
++                field[:values][value] ||
++                  raise("Value #{value} for parameter #{field[:name]} is not included in the values list #{field[:values].keys.inspect}")
+               when :descendant
+                 klass = field[:klass].split('::').inject(Sections) do |res, kl|
+                   raise 'Requested descendant class not found!' unless res
+diff --git a/preprocessor/sections/root.rb b/preprocessor/sections/root.rb
+index bce9642..028aafa 100644
+--- a/preprocessor/sections/root.rb
++++ b/preprocessor/sections/root.rb
+@@ -12,6 +12,11 @@ module Sections
+       super(nil, root_str)
+     end
+ 
++    GENERAL_SECTION = 0x00
++    GENERAL_ELEMENTS = {'type' => 0x01}
++    GENERAL_ELEMENTS_TEMPLATES = {'type' => 'C'}
++
++    field name: 'type', type: :enum, values: {'flow' => 0x01, 'escape' => 0x02}, default: 'flow'
+     field name: 'scene', type: :descendant, klass: 'Scene'
+     field name: 'time', type: :descendant, klass: 'Time'
+     field name: 'spawn', type: :descendant, klass: 'Spawn'
+@@ -34,5 +39,12 @@ module Sections
+       end
+       value
+     end
++
++    def to_config
++      config = ""
++      config += [GENERAL_SECTION, GENERAL_ELEMENTS['type'], get_data('type')].pack(CONFIG_ITEM_TEMPLATE_PREFIX + GENERAL_ELEMENTS_TEMPLATES['type'])
++      config += super.to_s
++      config
++    end
+   end
+ end
+diff --git a/preprocessor/sections/scene.rb b/preprocessor/sections/scene.rb
+index 418e520..b8d4082 100644
+--- a/preprocessor/sections/scene.rb
++++ b/preprocessor/sections/scene.rb
+@@ -6,7 +6,7 @@ module Sections
+   class Scene < Base
+     SCENE_SECTION = 0x01
+     SCENE_ELEMENTS = {
+-      'wall' => 0x01, 'spawn-area' => 0x02, 'target-area' => 0x03,
++      'wall' => 0x01, 'spawn-area' => 0x02, 'target-area' => 0x03, 'panic-source' => 0x04,
+       'width' => 0x11, 'height' => 0x12, 'scale' => 0x13,
+       'file_name' => 0xFF
+     }
+@@ -17,6 +17,8 @@ module Sections
+       'spawn-area' => 'S>S>S>S>C',
+       # x0 y0 x1 y1 id seq_no(7bit)|last(1bit)
+       'target-area' => 'S>S>S>S>CC',
++      # x y r power
++      'panic-source' => 'S>S>S>C',
+ 
+       'width' => 'S>', 'height' => 'S>',
+       'scale' => 'E',
+@@ -48,13 +50,20 @@ module Sections
+       geometry << ['width', scene_data['width'].to_i]
+       geometry << ['height', scene_data['height'].to_i]
+ 
+-      scene_data['line'].select{ |line| line['x_csim_class'] == 'wall' }.each do |wall|
++      to_array(scene_data['circle']).select{ |circle| circle['x_csim_class'] == 'panic-source' }.each do |ps|
++        geometry << [
++          'panic-source',
++          [ps['cx'], ps['cy'], ps['r'], ps['x_csim_power']].map(&:to_i)
++        ]
++      end
++
++      to_array(scene_data['line']).select{ |line| line['x_csim_class'] == 'wall' }.each do |wall|
+         geometry << [
+           'wall',
+           [wall['x1'], wall['y1'], wall['x2'], wall['y2']].map(&:to_i)
+         ]
+       end
+-      scene_data['rect'].select{ |rect| rect['x_csim_class'] == 'spawn-area' }.each do |spawn|
++      to_array(scene_data['rect']).select{ |rect| rect['x_csim_class'] == 'spawn-area' }.each do |spawn|
+         geometry << [
+           'spawn-area',
+           [spawn['x'].to_i, spawn['y'].to_i,
+@@ -62,7 +71,7 @@ module Sections
+            spawn['x_csim_id'].to_i]
+         ]
+       end
+-      scene_data['rect'].select{ |rect| rect['x_csim_class'] == 'target-area' }.each do |target|
++      to_array(scene_data['rect']).select{ |rect| rect['x_csim_class'] == 'target-area' }.each do |target|
+         geometry << [
+           'target-area',
+           [target['x'].to_i, target['y'].to_i,
+@@ -73,5 +82,14 @@ module Sections
+       end
+       data['geometry'] = geometry
+     end
++
++    private
++      def to_array(obj)
++        if obj
++          obj.kind_of?(Array) && obj || Array[obj]
++        else
++          []
++        end
++      end
+   end
+ end
