@@ -90,9 +90,9 @@
 
 
 % Зачем: Переопределяем стандартную нумерацию, т.к. в отчете будут только section и т.д. в терминологии TeX
-\makeatletter
-\renewcommand{\thesection}{\arabic{section}}
-\makeatother
+% \makeatletter
+% \renewcommand{\thesection}{\arabic{section}}
+% \makeatother
 
 
 % Зачем: Пункты (в терминологии требований) в терминологии TeX subsubsection должны нумероваться
@@ -110,8 +110,9 @@
 % Зачем: Определяет отступы слева для записей в таблице содержания.
 % Почему: Пункт 2.2.7 Требований по оформлению пояснительной записки.
 \makeatletter
-\renewcommand{\l@section}{\@dottedtocline{1}{0.5em}{1.2em}}
-\renewcommand{\l@subsection}{\@dottedtocline{2}{1.7em}{2.0em}}
+\renewcommand{\l@chapter}{\@dottedtocline{1}{0em}{1.2em}}
+\renewcommand{\l@section}{\@dottedtocline{2}{0.5em}{2.0em}}
+\renewcommand{\l@subsection}{\@dottedtocline{3}{1.7em}{2.8em}}
 \makeatother
 
 
@@ -122,54 +123,76 @@
 
 % Зачем: Нумерация страниц располагается справа снизу страницы
 % Почему: Пункт 2.2.8 Требований по оформлению пояснительной записки.
+% фикс для диссертации - теперь нужно по центру ...
 \fancyhf{} % очистка текущих значений
-\fancyfoot[R]{\thepage} % установка верхнего колонтитула
+\fancyfoot[R]{\centering\thepage} % установка верхнего колонтитула
 \renewcommand{\footrulewidth}{0pt} % убрать разделительную линию внизу страницы
 \renewcommand{\headrulewidth}{0pt} % убрать разделительную линию вверху страницы
 \fancypagestyle{plain}{ 
     \fancyhf{}
-    \rfoot{\thepage}}
+    \rfoot{\centering\thepage}}
 
 \makeatletter
 \renewcommand{\@seccntformat}[1]{%
   \bfseries \csname the#1\endcsname\ }
 \makeatletter
 
+\usepackage{titlesec}
+
+\titleformat
+{\chapter} % command
+[display] % shape
+{\centering\Large\bfseries} % format
+{ГЛАВА \thechapter} % label
+{0pt} % sep
+{
+} % before-code
+[
+] % after-code
+\titlespacing*{\chapter}{\fivecharsapprox}{-4ex}{3ex}
+
+\titleformat{\section}
+{\normalfont\large\bfseries}{\thesection}{1em}{}
+\titlespacing*{\section}{\fivecharsapprox}{3.5ex plus 1ex minus .2ex}{2.3ex plus .2ex}
+
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{1em}{}
+\titlespacing*{\subsection}{\fivecharsapprox}{3.25ex plus 1ex minus .2ex}{1.5ex plus .2ex}
+
 
 % Зачем: Задает стиль заголовков раздела жирным шрифтом, прописными буквами, без точки в конце
 % Почему: Пункты 2.1.1, 2.2.5, 2.2.6 и ПРИЛОЖЕНИЕ Л Требований по оформлению пояснительной записки.
-\makeatletter
-\renewcommand\section{%
-  \clearpage\@startsection {section}{1}%
-    {\fivecharsapprox}%
-    {-1em \@plus -1ex \@minus -.2ex}%
-    {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\large\bfseries\MakeUppercase}}
-\makeatother
+% \makeatletter
+% \renewcommand\section{%
+%   \clearpage\@startsection {section}{1}%
+%     {\fivecharsapprox}%
+%     {-1em \@plus -1ex \@minus -.2ex}%
+%     {1em \@plus .2ex}%
+%     {\raggedright\hyphenpenalty=10000\normalfont\large\bfseries\MakeUppercase}}
+% \makeatother
 
 
 % Зачем: Задает стиль заголовков подразделов
 % Почему: Пункты 2.1.1, 2.2.5 и ПРИЛОЖЕНИЕ Л Требований по оформлению пояснительной записки.
-\makeatletter
-\renewcommand\subsection{%
-  \@startsection{subsection}{2}%
-    {\fivecharsapprox}%
-    {-1em \@plus -1ex \@minus -.2ex}%
-    {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
-\makeatother
+% \makeatletter
+% \renewcommand\subsection{%
+%   \@startsection{subsection}{2}%
+%     {\fivecharsapprox}%
+%     {-1em \@plus -1ex \@minus -.2ex}%
+%     {1em \@plus .2ex}%
+%     {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
+% \makeatother
 
 
 % Зачем: Задает стиль заголовков пунктов
 % Почему: Пункты 2.1.1, 2.2.5 и ПРИЛОЖЕНИЕ Л Требований по оформлению пояснительной записки.
-\makeatletter
-\renewcommand\subsubsection{
-  \@startsection{subsubsection}{3}%
-    {\fivecharsapprox}%
-    {-1em \@plus -1ex \@minus -.2ex}%
-    {1em \@plus .2ex}%
-    {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
-\makeatother
+% \makeatletter
+% \renewcommand\subsubsection{
+%   \@startsection{subsubsection}{3}%
+%     {\fivecharsapprox}%
+%     {-1em \@plus -1ex \@minus -.2ex}%
+%     {1em \@plus .2ex}%
+%     {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
+% \makeatother
 
 % Зачем: для оформления введения и заключения, они должны быть выровнены по центру.
 % Почему: Пункты 1.1.15 и 1.1.11 Требований по оформлению пояснительной записки.
@@ -190,7 +213,7 @@
     {\z@}%
     {-1em \@plus -1ex \@minus -.2ex}%
     {1em \@plus .2ex}%
-    {\centering\hyphenpenalty=10000\normalfont\large\bfseries}%
+    {\hyphenpenalty=10000\normalfont\large\bfseries}%
     }
 \makeatother
 
