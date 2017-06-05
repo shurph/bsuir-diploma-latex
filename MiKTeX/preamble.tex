@@ -219,11 +219,6 @@
 
 
 
-% Зачем: Задает стиль библиографии
-% Почему: Пункт 2.8.6 Требований по оформлению пояснительной записки.
-\bibliographystyle{styles/belarus-specific-utf8gost780u}
-
-
 % Зачем: Пакет для вставки картинок
 % Примечание: Объяснение, зачем final - http://tex.stackexchange.com/questions/11004/why-does-the-image-not-appear
 \usepackage[final]{graphicx}
@@ -528,6 +523,9 @@
        {\@latex@warning{Empty `thebibliography' environment}}%
       \endlist}
 \makeatother
+
+\usepackage[resetlabels]{multibib}
+\newcites{own}{Own}
 
 % для принудительного разбивания на строки внутри табличной ячейки
 \newcommand{\specialcell}[2][c]{%

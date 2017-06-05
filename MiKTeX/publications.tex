@@ -1,0 +1,10 @@
+\renewcommand{\bibsection}{\section*{Cписок публикаций соискателя}}
+\addcontentsline{toc}{section}{Cписок публикаций соискателя}
+\nociteown{mypub}
+
+\makeatletter
+\renewcommand\@biblabel[1]{[1"=A]}
+\makeatother
+
+\bibliographystyleown{styles/belarus-specific-utf8gost780u}
+\bibliographyown{bibliography_database}
