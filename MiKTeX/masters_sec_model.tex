@@ -105,8 +105,10 @@
 
 \begin{equation}
   \label{sub:model:repulstion:force_walls_fm}
-  \vec{F}_{\alpha\beta}^{wall}(\vec{r}_{\alpha\beta}) = A exp( \frac{rad_{person} - ||\vec{r}_{\alpha\beta}||}{B} ) \frac{\vec{r}_{\alpha\beta}}{||\vec{r}_{\alpha\beta}||}
-  (K + (1 - K)\frac{1 + cos(\phi_{\alpha\beta})}{2})
+  \begin{aligned}
+    \vec{F}_{\alpha\beta}^{wall}(\vec{r}_{\alpha\beta}) = & A exp( \frac{rad_{person} - ||\vec{r}_{\alpha\beta}||}{B} ) \frac{\vec{r}_{\alpha\beta}}{||\vec{r}_{\alpha\beta}||} \times \\
+                                                          & \times (K + (1 - K)\frac{1 + cos(\phi_{\alpha\beta})}{2})
+  \end{aligned}
 \end{equation}
 \begin{explanation}
 где & $ \vec{r}_{\alpha\beta} = r_\alpha - r_\beta $ & вектор направления от $\beta$ к ближайшей точке $\alpha$; \\
@@ -124,8 +126,8 @@
 \begin{equation}
   \label{sub:model:repulstion:force_pedestr_dist_fm}
   \begin{aligned}
-    \vec{F}_{\alpha\beta}^{pedestrian\ basic}(\vec{r}_{\alpha\beta}) = & A (1 - pl_\alpha) exp( \frac{2 * rad_{person} - ||\vec{r}_{\alpha\beta}||}{B} ) \\
-                                                                       & \frac{\vec{r}_{\alpha\beta}}{||\vec{r}_{\alpha\beta}||} (K + (1 - K)\frac{1 + cos(\phi_{\alpha\beta})}{2})
+    \vec{F}_{\alpha\beta}^{pedestrian\ basic}(\vec{r}_{\alpha\beta}) = & A (1 - pl_\alpha) exp( \frac{2 * rad_{person} - ||\vec{r}_{\alpha\beta}||}{B} ) \times \\
+                                                                       & \times \frac{\vec{r}_{\alpha\beta}}{||\vec{r}_{\alpha\beta}||} (K + (1 - K)\frac{1 + cos(\phi_{\alpha\beta})}{2})
   \end{aligned}
 \end{equation}
 \begin{explanation}
@@ -162,9 +164,9 @@
   \label{sub:model:repulstion:force_pedestr_fm}
   \vec{F}_{\alpha\beta}^{pedestrian}(\vec{r}_{\alpha\beta}) =
     \begin{cases}
-      \vec{F}_{\alpha\beta}^{pedestrian\ basic}(\vec{r}_{\alpha\beta}), & \text{если}\ ||\vec{r}_{\alpha\beta}|| > 2 * rad_{person} \\
-      \vec{F}_{\alpha\beta}^{pedestrian\ phys}(\vec{r}_{\alpha\beta}) + & \\
-      \vec{F}_{\alpha\beta}^{pedestrian\ tangent}(\vec{r}_{\alpha\beta}), & \text{иначе} \\
+      \vec{F}_{\alpha\beta}^{pedes\ basic}(\vec{r}_{\alpha\beta}), \text{если}\ ||\vec{r}_{\alpha\beta}|| > 2 * rad_{person} \\
+      \vec{F}_{\alpha\beta}^{pedes\ phys}(\vec{r}_{\alpha\beta}) + \\
+      \vec{F}_{\alpha\beta}^{pedes\ tangent}(\vec{r}_{\alpha\beta}), \text{иначе} \\
     \end{cases}
 \end{equation}
 
@@ -224,7 +226,7 @@
   \label{sec:model:sf:panic:level}
   \begin{aligned}
     pl_\alpha^t = & k_{spl} {{1}\over{count(pedestrians)}} \sum\limits_{\beta=pedestrians} {pl_\beta} + \\
-                  & k_{ipl} {{1}\over{count(sources)}} \sum\limits_{\beta=sources} {opl_\beta}
+                  & + k_{ipl} {{1}\over{count(sources)}} \sum\limits_{\beta=sources} {opl_\beta}
   \end{aligned}
 \end{equation}
 \begin{explanation}
