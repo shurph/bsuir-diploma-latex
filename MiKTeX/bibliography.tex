@@ -1,5 +1,18 @@
 \chapter{БИБЛИОГРАФИЧЕСКИЙ СПИСОК}
 
-\include{references}
+\renewcommand{\bibsection}{\section*{Cписок использованных источников}}
+\addcontentsline{toc}{section}{Cписок использованных источников}
 
-\include{publications}
+\bibliographystyle{styles/belarus-specific-utf8gost780u}
+\bibliography{bibliography_database}
+
+\renewcommand{\bibsection}{\section*{Cписок публикаций соискателя}}
+\addcontentsline{toc}{section}{Cписок публикаций соискателя}
+\nociteown{mypub}
+
+\makeatletter
+\renewcommand\@biblabel[1]{[1"=A]}
+\makeatother
+
+\bibliographystyleown{styles/belarus-specific-utf8gost780u}
+\bibliographyown{bibliography_database}
