@@ -103,7 +103,10 @@
 \makeatletter
 \renewcommand{\l@section}{\@dottedtocline{1}{0.5em}{1.2em}}
 \renewcommand{\l@subsection}{\@dottedtocline{2}{1.7em}{2.0em}}
+\renewcommand{\l@subsubsection}{\@dottedtocline{3}{3.7em}{2.5em}}
 \makeatother
+
+\setcounter{tocdepth}{3}
 
 % Зачем: убираем переносы в содержании
 \makeatletter
@@ -168,7 +171,7 @@
   \@startsection{subsubsection}{3}%
     {\fivecharsapprox\bfseries}%
     {-1em \@plus -1ex \@minus -.2ex}%
-    {\z@}%
+    {1em \@plus .2ex}%
     {\raggedright\hyphenpenalty=10000\normalfont\normalsize}}
 \makeatother
 
