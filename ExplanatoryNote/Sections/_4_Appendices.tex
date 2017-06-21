@@ -1,0 +1,1021 @@
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{Приложение А Исходный код системы UI}
+\begin{center}
+  \textbf{\MakeUppercase{Приложение А}\\
+          (обязательное)\\~\\
+          Исходный код системы UI}
+\end{center}
+
+\begin{lstlisting}
+public class ScreenBase : MonoBehaviour, IScreen
+{
+    private IScreenStateAnimator _screenStateAnimator;
+
+    private static ScreenBase
+        _previousScreen,
+        _currentScreen;
+
+    public static bool HighPriorityRequested { get; private set; }
+
+    public event Action ScreenOpening
+    {
+        add { _screenStateAnimator.ScreenOpening += value; }
+        remove { _screenStateAnimator.ScreenOpening -= value; }
+    }
+
+    public event Action ScreenOpened
+    {
+        add { _screenStateAnimator.ScreenOpened += value; }
+        remove { _screenStateAnimator.ScreenOpened -= value; }
+    }
+
+    public event Action ScreenClosing
+    {
+        add { _screenStateAnimator.ScreenClosing += value; }
+        remove { _screenStateAnimator.ScreenClosing -= value; }
+    }
+
+    public event Action ScreenClosed
+    {
+        add { _screenStateAnimator.ScreenClosed += value; }
+        remove { _screenStateAnimator.ScreenClosed -= value; }
+    }
+
+    static ScreenBase()
+    {
+        SceneManager.sceneUnloaded += scene =>
+        {
+            _previousScreen = null;
+            _currentScreen = null;
+        };
+    }
+
+    [Inject]
+    private void OnInject(IScreenStateAnimator screenStateAnimator) => _screenStateAnimator = screenStateAnimator;
+
+    [Inject]
+    private void PreAwake()
+    {
+        _screenStateAnimator.ScreenOpening += OnScreenOpening;
+        _screenStateAnimator.ScreenOpened += OnScreenOpenedInternal;
+        _screenStateAnimator.ScreenClosing += OnScreenClosing;
+        _screenStateAnimator.ScreenClosed += OnScreenClosed;
+
+        var rectTransform = GetComponent<RectTransform>();
+        Assert.IsNotNull(rectTransform);
+
+        rectTransform.offsetMax = rectTransform.offsetMin = Vector2.zero;
+    }
+
+    private void OnDestroy()
+    {
+        _screenStateAnimator.ScreenOpening -= OnScreenOpening;
+        _screenStateAnimator.ScreenOpened -= OnScreenOpenedInternal;
+        _screenStateAnimator.ScreenClosing -= OnScreenClosing;
+        _screenStateAnimator.ScreenClosed -= OnScreenClosed;
+    }
+
+    public void OpenScreen() => OpenScreen(false);
+
+    public void OpenScreen(bool highPriority)
+    {
+        Assert.IsFalse(HighPriorityRequested && HighPriorityRequested == highPriority, $"Warning! The screen \"{this}\" tries to open with high priority, while the high priority is already set on the \"{_currentScreen}\" screen");
+
+        if (_currentScreen == this || HighPriorityRequested || !OnScreenRequestedToOpen())
+            return;
+
+        HighPriorityRequested = highPriority;
+
+        if (_previousScreen != this)
+            _previousScreen?._screenStateAnimator.SetCloseState();
+
+        _currentScreen?._screenStateAnimator.SetCloseState();
+
+        _previousScreen = _currentScreen;
+        _currentScreen = this;
+        _screenStateAnimator.SetOpenState();
+    }
+
+
+    protected virtual bool OnScreenRequestedToOpen() => true;
+
+    protected virtual void OnScreenOpening() {}
+
+    protected virtual void OnScreenOpened() {}
+
+    protected virtual void OnScreenClosing() {}
+
+    protected virtual void OnScreenClosed() {}
+
+    private void OnScreenOpenedInternal()
+    {
+        HighPriorityRequested = false;
+        OnScreenOpened();
+    }
+}
+\end{lstlisting}
+
+
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{Приложение Б Основной исходный код сетевой системы}
+\begin{center}
+  \textbf{\MakeUppercase{Приложение В}\\
+          (обязательное)\\~\\
+          Основной исходный код сетевой системы}
+\end{center}
+
+\begin{lstlisting}
+public sealed class MatchMakerManager : MonoBehaviour
+{
+    private LobbyManager _lobby;
+
+    private NetworkMatch _matchMaker;
+
+    [Header("Settings")]
+    [SerializeField]
+    private string _matchHost = "mm.unet.unity3d.com";
+
+    [SerializeField]
+    private int _matchPort = 443;
+
+    [SerializeField]
+    private uint _matchSize = 2;
+
+    [SerializeField]
+    private int _matchesPageSize = 8;
+
+    public string MatchName { get; private set; }
+
+    public MatchInfo MatchInfo { get; private set; }
+
+    public List<MatchInfoSnapshot> Matches { get; private set; } = new List<MatchInfoSnapshot>();
+
+    public int CurrentPage { get; private set; }
+
+    public bool IsPageRequesting { get; private set; }
+
+    public event Action MatchCreating;
+    public event Action MatchJoining;
+    public event Action FindingQuickPlayMatch;
+    public event Action<string> MatchMakerError;
+    public event Action MatchListChanged;
+
+    [Inject]
+    private void Inject(LobbyManager lobby) => _lobby = lobby;
+
+    private void Awake()
+    {
+        _matchMaker = gameObject.AddComponent<NetworkMatch>();
+
+        SetMatchHost(_matchHost, _matchPort, _matchPort == 443);
+
+        _lobby.ClientDisconnected += Lobby_OnClientDisconnected;
+        _lobby.ClientStopped += StopMatchMaker;
+
+        _lobby.ServerStoping += StopMatchMaker;
+    }
+
+    private void OnApplicationQuit() => StopMatchMaker();
+
+    private void OnDestroy()
+    {
+        _lobby.ClientDisconnected -= Lobby_OnClientDisconnected;
+        _lobby.ClientStopped -= StopMatchMaker;
+
+        _lobby.ServerStoping -= StopMatchMaker;
+    }
+
+    public void SetMatchHost(string host, int port, bool https)
+    {
+        if (host == "127.0.0.1")
+            host = "localhost";
+
+        var prefix = https ? "https://" : "http://";
+
+        if (host.StartsWith("http://"))
+            host = host.Replace("http://", "");
+
+        if (host.StartsWith("https://"))
+            host = host.Replace("https://", "");
+
+        _matchHost = host;
+        _matchPort = port;
+
+        _matchMaker.baseUri = new Uri($"{prefix}{host}:{port}");
+    }
+
+    public void StopMatchMaker()
+    {
+        if (MatchInfo != null && MatchInfo.networkId != NetworkID.Invalid && MatchInfo.nodeId != NodeID.Invalid)
+            _matchMaker.DropConnection(MatchInfo.networkId, MatchInfo.nodeId, MatchInfo.domain, (success, info) => { });
+
+        MatchName = null;
+        MatchInfo = null;
+        Matches.Clear();
+    }
+
+    public void CreateMatch([NotNull] string matchName)
+    {
+        if (matchName == null)
+            throw new ArgumentNullException(nameof(matchName));
+
+        _matchMaker.CreateMatch(matchName, _matchSize, true, "", "", "", 0, 0, (success, extendedInfo, matchInfo) =>
+            {
+                if (success)
+                {
+                    MatchInfo = matchInfo;
+                    _lobby.StartHost(matchInfo);
+                }
+                else
+                {
+                    MatchMakerError?.Invoke(extendedInfo);
+                }
+            });
+
+        MatchName = matchName;
+        MatchCreating?.Invoke();
+    }
+
+    public void FindQuickPlayMatch()
+    {
+        _matchMaker.ListMatches(0, 1, "", true, 0, 0, (success, extendedInfo, matchList) =>
+            {
+                if (success && matchList.Count > 0)
+                    JoinMatch(matchList[0]);
+                else
+                    MatchMakerError?.Invoke("no matches avaible");
+            });
+
+        FindingQuickPlayMatch?.Invoke();
+    }
+
+    public void RequesMatchesList(int pageNumber)
+    {
+        if (IsPageRequesting || pageNumber < 0)
+            return;
+
+        IsPageRequesting = true;
+
+        _matchMaker.ListMatches(pageNumber, _matchesPageSize, "", true, 0, 0, (success, extendedInfo, matchList) =>
+            {
+                IsPageRequesting = false;
+
+                if (matchList.Count == 0 && pageNumber != 0)
+                {
+                    RequesMatchesList(pageNumber - 1);
+                    return;
+                }
+
+                CurrentPage = pageNumber;
+                Matches = matchList;
+
+                if (success)
+                    MatchListChanged?.Invoke();
+                else
+                    MatchMakerError?.Invoke(extendedInfo);
+            });
+    }
+
+    public void JoinMatch([NotNull] MatchInfoSnapshot matchInfoSnapshot)
+    {
+        if (matchInfoSnapshot == null)
+            throw new ArgumentNullException(nameof(matchInfoSnapshot));
+
+        _matchMaker.JoinMatch(matchInfoSnapshot.networkId, "", "", "", 0, 0, (success, extendedInfo, matchInfo) =>
+            {
+                if (success)
+                {
+                    MatchInfo = matchInfo;
+                    _lobby.StartClient(matchInfo);
+                }
+                else
+                {
+                    MatchMakerError?.Invoke(extendedInfo);
+                }
+            });
+
+        MatchName = matchInfoSnapshot.name;
+        MatchJoining?.Invoke();
+    }
+
+    private void Lobby_OnClientDisconnected(NetworkError error) => StopMatchMaker();
+}
+
+public abstract class LobbyMemberBase : NetworkLobbyPlayer
+{
+    private ILobbyPlayerClientSpawnHandler _spawnHandler;
+    private NetworkPreferencesManager _networkPreferences;
+
+    [ReadOnly]
+    [SerializeField]
+    [SyncVar(hook = "OnIsInitializedSync")]
+    private bool _isInitialized;
+
+    public bool IsInitialized => _isInitialized;
+
+    public bool CanJoin => _networkPreferences.PlayersCount == _networkPreferences.MaxPlayers;
+
+    [Inject]
+    private void OnInject(ILobbyPlayerClientSpawnHandler spawnHandler, NetworkPreferencesManager networkPreferences)
+    {
+        _spawnHandler = spawnHandler;
+        _networkPreferences = networkPreferences;
+    }
+
+    private void Start()
+    {
+        useGUILayout = false;
+
+        DontDestroyOnLoad(gameObject);
+
+        if (!isLocalPlayer)
+            return;
+
+        OnClientInitializing();
+        CmdSetInitialized();
+    }
+
+    public override void OnClientEnterLobby()
+    {
+        _networkPreferences.ClientPlayersCountChanged += NetworkPreferences_ClientPlayersCountChanged;
+
+        if (!_isInitialized)
+            return;
+
+        _spawnHandler.HandleLobbyPlayerSpawn(gameObject);
+        OnClientEnteredLobby();
+    }
+
+    public override void OnClientExitLobby()
+    {
+        _networkPreferences.ClientPlayersCountChanged -= NetworkPreferences_ClientPlayersCountChanged;
+        OnClientExitedLobby();
+    }
+
+    private void OnDestroy()
+    {
+        if (isClient)
+            OnClientExitLobby();
+    }
+
+    [Server]
+    public void DisconnectClient() => connectionToClient.Disconnect();
+
+    protected virtual void OnClientInitializing() {}
+    protected virtual void OnClientEnteredLobby() {}
+    protected virtual void OnClientExitedLobby() {}
+    protected virtual void OnClientCanJoinChanged(bool canJoin) {}
+
+    [Command]
+    private void CmdSetInitialized() => _isInitialized = true;
+
+    [UsedImplicitly]
+    private void OnIsInitializedSync(bool isInitialized)
+    {
+        if (_isInitialized || !isInitialized)
+            return;
+
+        _isInitialized = true;
+        _spawnHandler.HandleLobbyPlayerSpawn(gameObject);
+        OnClientEnteredLobby();
+    }
+
+    private void NetworkPreferences_ClientPlayersCountChanged(int playersCount)
+    {
+        var canJoin = CanJoin;
+
+        if (!canJoin && readyToBegin)
+        {
+            readyToBegin = false;
+
+            if (isLocalPlayer)
+                SendNotReadyToBeginMessage();
+        }
+
+        OnClientCanJoinChanged(canJoin);
+    }
+}
+
+public sealed class LobbyMember : LobbyMemberBase, IPlayerInfo
+{
+    private PreferencesManager _preferences;
+
+    private SkinsBundle _skins;
+
+    [ReadOnly]
+    [SerializeField]
+    [SyncVar(hook = "OnPlayerNameSync")]
+    private string _playerName;
+
+    [ReadOnly]
+    [SerializeField]
+    [SyncVar(hook = "OnSkinIdSync")]
+    private int _skinId;
+
+    private SkinInfo _skin;
+
+    public event Action ClientInfoChanged;
+    public event Action ClientExitLobby;
+
+    public string PlayerName
+    {
+        get { return _playerName; }
+        [Client]
+        set { CmdSetPlayerName(value); }
+    }
+
+    public SkinInfo Skin
+    {
+        get { return _skin; }
+        [Client]
+        set { CmdSetSkinId(value.Id); }
+    }
+
+    [Inject]
+    private void OnInject(PreferencesManager preferences, SkinsBundle skins)
+    {
+        _preferences = preferences;
+        _skins = skins;
+    }
+
+    protected override void OnClientInitializing()
+    {
+        CmdSetPlayerName(_preferences.PlayerName);
+        CmdSetSkinId(_preferences.Skin.Id);
+    }
+
+    protected override void OnClientCanJoinChanged(bool canJoin) => OnClientInfoChanged();
+
+    public override void OnClientReady(bool isReady) => OnClientInfoChanged();
+
+    protected override void OnClientExitedLobby() => ClientExitLobby?.Invoke();
+
+    [Command]
+    private void CmdSetPlayerName(string playerName) => _playerName = playerName;
+
+    [Command]
+    private void CmdSetSkinId(int skinId) => _skinId = skinId;
+
+    private void OnPlayerNameSync(string playerName)
+    {
+        _playerName = playerName;
+        OnClientInfoChanged();
+    }
+
+    private void OnSkinIdSync(int skinId)
+    {
+        _skinId = skinId;
+        _skin = _skins.FindById(skinId);
+        OnClientInfoChanged();
+    }
+
+    private void OnClientInfoChanged()
+    {
+        if (IsInitialized)
+            ClientInfoChanged?.Invoke();
+    }
+}
+\end{lstlisting}
+
+
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{Приложение В Дополнительный исходный код сетевой системы}
+\begin{center}
+  \textbf{\MakeUppercase{Приложение В}\\
+          (обязательное)\\~\\
+          Дополнительный исходный код сетевой системы}
+\end{center}
+
+\begin{lstlisting}
+public sealed class ChatManager : MonoBehaviour, IChatManagerBackend
+{
+    private LobbyManager _lobby;
+
+    private ChatServerSender _serverSender;
+    private ChatClientSender _clientSender;
+    private Queue<ChatMessage> _messages;
+
+    [SerializeField]
+    private ChatServerSender _chatServerSenderPrefab = null;
+
+    [SerializeField]
+    private int _maxMessagesCount = 20;
+
+    [SerializeField]
+    private int _maxMessageLength = 50;
+
+    public int MaxMessagesCount => _maxMessagesCount;
+
+    public int MaxMessageLength => _maxMessageLength;
+
+    public int MessagesCount => _messages.Count;
+
+    public IEnumerable<ChatMessage> Messages => _messages;
+
+    public event Action<ChatMessage> ClientMessageRecieved;
+
+    private void OnValidate()
+    {
+        Assert.IsNotNull(_chatServerSenderPrefab);
+
+        if (_maxMessagesCount < 0)
+            _maxMessagesCount = 0;
+    }
+
+    [Inject]
+    private void Inject(LobbyManager lobby) => _lobby = lobby;
+
+    private void Awake()
+    {
+        ClientScene.RegisterPrefab(_chatServerSenderPrefab.gameObject);
+
+        _messages = new Queue<ChatMessage>(_maxMessagesCount);
+
+        _lobby.ServerStarted += Lobby_OnServerStarted;
+        _lobby.ClientStopped += Lobby_OnClientStopped;
+    }
+
+    private void OnDestroy()
+    {
+        _lobby.ServerStarted -= Lobby_OnServerStarted;
+        _lobby.ClientStopped -= Lobby_OnClientStopped;
+    }
+
+    public void ClientSendMessage([NotNull] string message)
+    {
+        if (message == null)
+            throw new ArgumentNullException(nameof(message));
+
+        message = message.Trim();
+
+        if (message.Length > _maxMessageLength)
+            message = message.Remove(_maxMessageLength);
+
+        _clientSender?.ClientSendMessage(message);
+    }
+
+    #region IChatManagerBackend
+
+    void IChatManagerBackend.RegisterClientSender(ChatClientSender clientSender)
+    {
+        if (clientSender == null)
+            throw new ArgumentNullException(nameof(clientSender));
+
+        if (clientSender.isLocalPlayer)
+            _clientSender = clientSender;
+    }
+
+    void IChatManagerBackend.RegisterServerSender(ChatServerSender serverSender)
+    {
+        if (serverSender == null)
+            throw new ArgumentNullException(nameof(serverSender));
+
+        _serverSender = serverSender;
+        _serverSender.transform.SetParent(transform, false);
+    }
+
+    void IChatManagerBackend.ClientReceiveMessage(string playerName, string message)
+    {
+        if (message == null)
+            throw new ArgumentNullException(nameof(message));
+
+        var chatMessage = new ChatMessage(playerName, message);
+
+        ClientMessageRecieved?.Invoke(chatMessage);
+
+        while (_messages.Count >= _maxMessagesCount)
+            _messages.Dequeue();
+
+        _messages.Enqueue(chatMessage);
+    }
+
+    void IChatManagerBackend.ServerReceiveMessage(string playerName, string message)
+    {
+        if (message == null)
+            throw new ArgumentNullException(nameof(message));
+
+        if (NetworkServer.active)
+            _serverSender?.ServerSendMessage(playerName, message);
+    }
+
+    #endregion
+
+    private void Lobby_OnServerStarted()
+    {
+        var serverSender = Instantiate(_chatServerSenderPrefab);
+        NetworkServer.Spawn(serverSender.gameObject);
+    }
+
+    private void Lobby_OnClientStopped() => _messages.Clear();
+}
+
+public sealed class NetworkPreferencesManager : MonoBehaviour, INetworkPreferencesBackend, INetworkPreferencesServerSetter
+{
+    private PreferencesManager _preferences;
+    private LobbyManager _lobby;
+
+    private GameModesBundle _gameModes;
+
+    private NetworkPreferencesServerSender _serverSender;
+
+    [SerializeField]
+    private NetworkPreferencesServerSender _networkPreferencesServerSenderPrefab = null;
+
+    public bool IsInitialized =>
+        _serverSender != null;
+
+    public int MaxPlayers =>
+        _lobby.maxPlayers;
+
+    public int PlayersCount =>
+        _serverSender.PlayersCount;
+
+    public GameModeInfo GameMode { get; private set; }
+
+    public event Action<GameModeInfo> ClientGameModeChanged;
+    public event Action<int> ClientPlayersCountChanged;
+
+    public event Action<GameModeInfo> ServerGameModeChanged;
+    public event Action<int> ServerPlayersCountChanged;
+
+    [Inject]
+    private void Inject(PreferencesManager preferences, LobbyManager lobby, GameModesBundle gameModes)
+    {
+        _preferences = preferences;
+        _lobby = lobby;
+        _gameModes = gameModes;
+    }
+
+    private void Awake()
+    {
+        ClientScene.RegisterPrefab(_networkPreferencesServerSenderPrefab
+            .gameObject);
+
+        _lobby.ServerStarted += Lobby_OnServerStarted;
+    }
+
+    private void OnDestroy() => _lobby.ServerStarted -= Lobby_OnServerStarted;
+
+    #region INetworkPreferencesBackend
+
+    void INetworkPreferencesBackend.RegisterServerSender(
+        NetworkPreferencesServerSender serverSender)
+    {
+        if (serverSender == null)
+            throw new ArgumentNullException(nameof(serverSender));
+
+        _serverSender = serverSender;
+
+        _serverSender.transform.SetParent(transform, false);
+    }
+
+    void INetworkPreferencesBackend.ClientReceiveGameModeId(int gameModeId) => ClientGameModeChanged?.Invoke(GameMode = _gameModes.FindById(gameModeId));
+
+    void INetworkPreferencesBackend.ClientReceivePlayersCount(int playersCount) => ClientPlayersCountChanged?.Invoke(playersCount);
+
+    #endregion
+
+    #region INetworkPreferencesServerSetter
+
+    void INetworkPreferencesServerSetter.ServerSetGameMode(GameModeInfo gameMode)
+    {
+        if (gameMode == null)
+            throw new ArgumentNullException(nameof(gameMode));
+
+        if (!NetworkServer.active)
+            return;
+
+        GameMode = gameMode;
+
+        if (_serverSender != null)
+            _serverSender.GameModeId = gameMode.Id;
+
+        ServerGameModeChanged?.Invoke(gameMode);
+    }
+
+    void INetworkPreferencesServerSetter.ServerSetPlayersCount(int playerCount)
+    {
+        if (!NetworkServer.active)
+            return;
+
+        if (_serverSender != null)
+            _serverSender.PlayersCount = playerCount;
+
+        ServerPlayersCountChanged?.Invoke(playerCount);
+    }
+
+    #endregion
+
+
+    private void Lobby_OnServerStarted()
+    {
+        var networkGameSettingsSender = Instantiate(_networkPreferencesServerSenderPrefab);
+
+        networkGameSettingsSender.GameModeId = _preferences.GameMode.Id;
+        networkGameSettingsSender.PlayersCount = 1;
+
+        NetworkServer.Spawn(networkGameSettingsSender.gameObject);
+    }
+}
+\end{lstlisting}
+
+
+\newpage
+\phantomsection
+\addcontentsline{toc}{section}{Приложение Г Исходный код внутриигрового магазина и инвентаря}
+\begin{center}
+  \textbf{\MakeUppercase{Приложение А}\\
+          (обязательное)\\~\\
+          Исходный код внутриигрового магазина и инвентаря}
+\end{center}
+
+\begin{lstlisting}
+#if UNITY_ANDROID || UNITY_IPHONE || UNITY_STANDALONE_OSX || UNITY_TVOS
+  #define RECEIPT_VALIDATION
+#endif
+
+#if UNITY_IPHONE || UNITY_STANDALONE_OSX
+  #define RESTORE_PURCHASES
+#endif
+
+public sealed class ShopManager : MonoBehaviour, IStoreListener
+{
+    private ShopItemsBundle _shopItems = null;
+
+    private IStoreController _storeController;
+
+#if RESTORE_PURCHASES
+    private IAppleExtensions _appleExtensions;
+#endif
+
+#if RECEIPT_VALIDATION
+    private CrossPlatformValidator _validator;
+#endif
+
+    public bool IsInitialized { get; private set; }
+
+    public bool IsPurchaseInProgress { get; private set; }
+
+#if RESTORE_PURCHASES
+    public bool IsRestorePurchasesAllowed => true;
+#else
+    public bool IsRestorePurchasesAllowed => false;
+#endif
+
+    private event Action InitializedInternal;
+
+    public event Action Initialized
+    {
+        add
+        {
+            if (IsInitialized)
+                value();
+            else
+                InitializedInternal += value;
+        }
+        remove { InitializedInternal -= value; }
+    }
+
+    public event Action<InitializationFailureReason> InitializeFailed;
+
+    public event Action<ShopItemInfo> ProductPurchasing;
+    public event Action<ShopItemInfo> ProductPurchased;
+    public event Action<ShopItemInfo, PurchaseFailureReason> ProductPurchaseFailed;
+
+    public event Action PurchasesRestoring = null;
+    public event Action PurchasesRestored = null;
+    public event Action PurchasesRestoreFailed = null;
+
+    [Inject]
+    private void OnInject(ShopItemsBundle shopItems) => _shopItems = shopItems;
+
+    private void Awake()
+    {
+        var module = StandardPurchasingModule.Instance();
+        module.useFakeStoreAlways = true;
+
+        var builder = ConfigurationBuilder.Instance(module);
+        foreach (var item in _shopItems)
+            builder.AddProduct(item.Id, item.Type);
+
+#if RECEIPT_VALIDATION
+        _validator = new CrossPlatformValidator(GooglePlayTangle.Data(), AppleTangle.Data(), Application.bundleIdentifier);
+#endif
+
+        UnityPurchasing.Initialize(this, builder);
+    }
+
+    public void Purchase([NotNull] ShopItemInfo item)
+    {
+        if (item == null)
+            throw new ArgumentNullException(nameof(item));
+
+        if (!IsInitialized || IsPurchaseInProgress)
+            return;
+
+        IsPurchaseInProgress = true;
+        ProductPurchasing?.Invoke(item);
+
+        _storeController.InitiatePurchase(item.Product);
+    }
+
+    public void RestorePurchases()
+    {
+#if RESTORE_PURCHASES
+        PurchasesRestoring?.Invoke();
+
+        _appleExtensions.RestoreTransactions(success =>
+        {
+            if (success)
+                PurchasesRestored?.Invoke();
+            else
+                PurchasesRestoreFailed?.Invoke();
+        });
+#endif
+    }
+
+    #region IStoreListener
+
+    void IStoreListener.OnInitialized(IStoreController controller, IExtensionProvider extensions)
+    {
+        _storeController = controller;
+#if RESTORE_PURCHASES
+        _appleExtensions = extensions.GetExtension<IAppleExtensions>();
+#endif
+
+        foreach (var product in controller.products.all)
+        {
+            var shopItem = _shopItems.FindById(product.definition.id) as IShopItemInitializer;
+            shopItem?.SetProduct(product);
+        }
+
+        IsInitialized = true;
+        InitializedInternal?.Invoke();
+        InitializedInternal = null;
+    }
+
+    void IStoreListener.OnInitializeFailed(InitializationFailureReason reason) => InitializeFailed?.Invoke(reason);
+
+    PurchaseProcessingResult IStoreListener.ProcessPurchase(PurchaseEventArgs args)
+    {
+        IsPurchaseInProgress = false;
+        var shopItem = _shopItems.FindById(args.purchasedProduct.definition.id);
+
+#if RECEIPT_VALIDATION
+        try
+        {
+            var result = _validator.Validate(args.purchasedProduct.receipt);
+        }
+        catch (IAPSecurityException)
+        {
+            if (shopItem != null)
+                ((IShopItemInitializer)shopItem).SetIsPurchased(false);
+
+            return PurchaseProcessingResult.Complete;
+        }
+#endif
+
+        if (shopItem != null)
+        {
+            ((IShopItemInitializer) shopItem).SetIsPurchased(true);
+            ProductPurchased?.Invoke(shopItem);
+        }
+
+        return PurchaseProcessingResult.Complete;
+    }
+
+    void IStoreListener.OnPurchaseFailed(Product product, PurchaseFailureReason reason)
+    {
+        var shopItem = _shopItems.FindById(product.definition.id);
+
+        IsPurchaseInProgress = false;
+
+        if (shopItem != null)
+            ProductPurchaseFailed?.Invoke(shopItem, reason);
+    }
+
+    #endregion
+}
+
+public sealed class InventoryManager : MonoBehaviour
+{
+    private PreferencesManager _preferences;
+    private ShopManager _shop;
+
+    private ShopItemsBundle _shopItems;
+    private SkinsBundle _skins;
+
+    [Header("Actions")]
+    [SerializeField]
+    private ShopItemCategory _actionsCategory = null;
+
+    [SerializeField]
+    private ShopItemInfo _disableAdsShopItem = null;
+
+    [Header("Skins")]
+    [SerializeField]
+    private ShopItemCategory _skinsCategory = null;
+
+    [SerializeField]
+    private SkinInfo _defaultSkin = null;
+
+    public SkinInfo CurrentSkin { get; private set; }
+
+    public bool IsAdsDisabled { get; private set; }
+
+    private void OnValidate()
+    {
+        Assert.IsNotNull(_actionsCategory);
+        Assert.IsNotNull(_disableAdsShopItem);
+        Assert.IsNotNull(_skinsCategory);
+        Assert.IsNotNull(_defaultSkin);
+    }
+
+    [Inject]
+    private void OnInject(PreferencesManager preferences, ShopManager shop, ShopItemsBundle shopItems, SkinsBundle skins)
+    {
+        _preferences = preferences;
+        _shop = shop;
+        _shopItems = shopItems;
+        _skins = skins;
+    }
+
+    private void Awake()
+    {
+        CurrentSkin = _defaultSkin;
+        IsAdsDisabled = false;
+
+        _shop.Initialized += Shop_OnInitialized;
+    }
+
+    private void OnDestroy() => _shop.Initialized -= Shop_OnInitialized;
+
+    public void ToggleShopItem([NotNull] ShopItemInfo shopItem, bool isEnabled)
+    {
+        if (shopItem == null)
+            throw new ArgumentNullException(nameof(shopItem));
+
+        var category = shopItem.Category;
+
+        if (category == _actionsCategory && shopItem == _disableAdsShopItem)
+            SetIsAdsDisabled(isEnabled);
+
+        if (category == _skinsCategory && isEnabled)
+            SetCurrentSkin(shopItem: shopItem);
+    }
+
+    public bool IsShopItemEnabled([NotNull] ShopItemInfo shopItem)
+    {
+        if (shopItem == null)
+            throw new ArgumentNullException(nameof(shopItem));
+
+        var category = shopItem.Category;
+
+        if (category == _actionsCategory && shopItem == _disableAdsShopItem)
+            return IsAdsDisabled;
+
+        if (category == _skinsCategory)
+            return CurrentSkin.Name == shopItem.Name;
+
+        return false;
+    }
+
+    public void SetIsAdsDisabled(bool isDisabled)
+    {
+        if (!_disableAdsShopItem.IsPurchased)
+            isDisabled = false;
+
+        IsAdsDisabled = _preferences.AdsDisabled = isDisabled;
+    }
+
+    public void SetCurrentSkin(SkinInfo skin = null, ShopItemInfo shopItem = null)
+    {
+        if (skin == null && shopItem == null)
+            throw new ArgumentNullException($"{nameof(skin)} or {nameof(shopItem)} must be not null");
+
+        if (skin == null)
+            skin = GetSkinByShopItem(shopItem);
+        else if (shopItem == null)
+            shopItem = _shopItems.FindById(skin.Name);
+
+        if (shopItem != null && !shopItem.IsPurchased)
+            skin = _defaultSkin;
+
+        CurrentSkin = _preferences.Skin = skin;
+    }
+
+
+    private SkinInfo GetSkinByShopItem(ShopItemInfo shopItem) => _skins.First(skin => skin.Name == shopItem.Name);
+
+    private void Shop_OnInitialized()
+    {
+        _shop.Initialized -= Shop_OnInitialized;
+
+        SetIsAdsDisabled(_preferences.AdsDisabled);
+        SetCurrentSkin(_preferences.Skin);
+    }
+}
+\end{lstlisting}
