@@ -1,17 +1,14 @@
-\lstset{style=fsharpstyle}
-
 \section{РАЗРАБОТКА ОСНОВНЫХ УСТРОЙСТВ МИКРО-ЭВМ}
-\label{sec:practice:technology_used}
 
 В данном разделе подробно описывается состав и принципы работы основных блоков микро-ЭВМ.
 
 \subsection{Запоминающие устройства. Функциональный состав и временные диаграммы работы ОЗУ}
-\begin{figure}[ht]{\textwidth}
+
+\begin{figure}[ht]
 \centering
-    \includegraphics[scale=0.8]{ramb}
+        \includegraphics[scale=0.8]{ramb}
     \caption{Блок памяти}
 \end{figure}
-
 Блок ram\_block включает в себя синхронные ram и rom, переключение между блоками осуществляется на основе старшего бита адреса.
 Временные диаграммы чтения и записи ОЗУ представлены на рисунках 2.1 и 2.2.
 
@@ -37,7 +34,7 @@
 
 На вход подается единственный сигнал -- clk. Он служит для тактирования УУ.
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{cub}
     \caption{Блок управления}
@@ -65,7 +62,7 @@
 Блок включает в себя 2 регистра для хранения слов команд, счетчик инструкций.
 Схему блока можно найти в файле 'if.bdf'.
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{ifc}
     \caption{Блок выборки инструкций}
@@ -105,7 +102,7 @@
 \subsection{Блок выборки операндов}
 Осуществляет загрузку операндов из памяти, используя соответсвующую команде адресацию. Блок представлен в файле 'op\_f.bdf'.
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{opfb}
     \caption{Блок выборки операндов}
@@ -132,7 +129,7 @@
 \subsection{АЛУ}
 Блок АЛУ выполняет арифметические и логические операции, работает со стеком. Если операнды не нуждаются в обработке(например при командах пересылки), АЛУ отправляет их сразу на выход. Также АЛУ содержит регистр, хранящий знак последних выходных данных с АЛУ.
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{alub}
     \caption{АЛУ}
@@ -157,7 +154,7 @@
 
 \subsection{Блок сохранения результата}
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{wbc}
     \caption{Блок сохранения результата}
@@ -183,7 +180,7 @@
 Блок осуществляет запись операнда в ОЗУ или РОН в зависимости от адресации команды.
 
 \subsection{Блок РОН}
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{regb}
     \caption{Блок РОН}
@@ -205,7 +202,7 @@
 \subsection{Стек}
 Содержит 11 шестнадцатиразрядных регистров. Позволяет работать с регистрами по принципу FIFO. На схеме блок имеет название 'Stack'.
 
-\begin{figure}[ht]{\textwidth}
+\begin{figure}[ht]
 \centering
     \includegraphics[scale=0.8]{stackb}
     \caption{Стек}
